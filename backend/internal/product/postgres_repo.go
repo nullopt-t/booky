@@ -46,10 +46,10 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*domain.Product,
 	return &p, nil
 }
 
-func (r *PostgresRepo) List(ctx context.Context) ([]domain.Product, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, q db.PaginationQuery) (*PaginatedProductsResponse, error) {
+	offset := (q.Page - 1) * q.Limit
 	rows, err := r.db.GetPool().Query(ctx,
-		`SELECT id, title, price, stock, created_at, updated_at FROM products`,
-	)
+		`SELECT id, title, price, stock, created_at, updated_at FROM products LIMIT $1 OFFSET $2`, q.Limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -62,5 +62,21 @@ func (r *PostgresRepo) List(ctx context.Context) ([]domain.Product, error) {
 		products = append(products, p)
 	}
 
-	return products, nil
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// query the products count
+	var count int
+	err = r.db.GetPool().QueryRow(ctx, "SELECT COUNT(*) FROM products").Scan(&count)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PaginatedProductsResponse{
+		Products: products,
+		Page:     q.Page,
+		Limit:    q.Limit,
+		Total:    count,
+	}, nil
 }
