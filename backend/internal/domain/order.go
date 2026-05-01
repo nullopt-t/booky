@@ -5,14 +5,14 @@ import "time"
 type OrderStatus string
 
 const (
-	pending    OrderStatus = "pending"
-	confirmed  OrderStatus = "confirmed"
-	paid       OrderStatus = "paid"
-	processing OrderStatus = "processing"
-	shipped    OrderStatus = "shipped"
-	delivered  OrderStatus = "delivered"
-	cancelled  OrderStatus = "cancelled"
-	refuneded  OrderStatus = "refuneded"
+	OrderStatusPending    OrderStatus = "pending"
+	OrderStatusConfirmed  OrderStatus = "confirmed"
+	OrderStatusPaid       OrderStatus = "paid"
+	OrderStatusProcessing OrderStatus = "processing"
+	OrderStatusShipped    OrderStatus = "shipped"
+	OrderStatusDelivered  OrderStatus = "delivered"
+	OrderStatusCancelled  OrderStatus = "cancelled"
+	OrderStatusRefuneded  OrderStatus = "refuneded"
 )
 
 type OrderItem struct {
@@ -23,9 +23,9 @@ type OrderItem struct {
 
 type Order struct {
 	// order data
-	ID         string `json:"id"`
-	Status     string `json:"status"`
-	TotalPrice int    `json:"total_price"`
+	ID         string      `json:"id"`
+	Status     OrderStatus `json:"status"`
+	TotalPrice int         `json:"total_price"`
 
 	// items data
 	Items []OrderItem `json:"items"`

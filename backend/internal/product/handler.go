@@ -1,7 +1,6 @@
 package product
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/utils"
 	"net/http"
 
@@ -17,7 +16,7 @@ func NewHandler(s *Service) *Handler {
 }
 
 func (h *Handler) handleGetProducts(c *gin.Context) {
-	var query db.PaginationQuery
+	var query utils.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
@@ -49,13 +48,23 @@ func (h *Handler) handleGetProducts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"data": ppr.Products,
-		"meta": gin.H{
-			"page":  ppr.Page,
-			"limit": ppr.Limit,
-			"total": ppr.Total,
-		},
+	var products []ProductResponse
+	for _, p := range ppr.Items {
+		products = append(products, ProductResponse{
+			ID:        p.ID,
+			Title:     p.Title,
+			Price:     p.Price,
+			Stock:     p.Stock,
+			CreatedAt: p.CreatedAt,
+			UpdatedAt: p.UpdatedAt,
+		})
+	}
+
+	c.JSON(200, &ProductsResponse{
+		Products: products,
+		Page:     ppr.Page,
+		Limit:    ppr.Limit,
+		Total:    ppr.Total,
 	})
 }
 
@@ -87,8 +96,13 @@ func (h *Handler) handleGetProductByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusFound, gin.H{
-		"data": p,
+	c.JSON(http.StatusFound, &ProductResponse{
+		ID:        p.ID,
+		Title:     p.Title,
+		Price:     p.Price,
+		Stock:     p.Stock,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
 	})
 }
 
@@ -117,8 +131,63 @@ func (h *Handler) handlerCreateProduct(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"data": newProduct,
+	c.JSON(http.StatusCreated, &ProductResponse{
+		ID:        newProduct.ID,
+		Title:     newProduct.Title,
+		Price:     newProduct.Price,
+		Stock:     newProduct.Stock,
+		CreatedAt: newProduct.CreatedAt,
+		UpdatedAt: newProduct.UpdatedAt,
+	})
+}
+
+func (h *Handler) handlerUpdateProduct(c *gin.Context) {
+	var params = struct {
+		ID string `uri:"id" binding:"required"`
+	}{}
+
+	if err := c.ShouldBindUri(&params); err != nil {
+		c.JSON(http.StatusBadRequest,
+			gin.H{
+				"error": utils.ErrorResponse{
+					Code:    "invalid_request",
+					Message: err.Error(),
+				},
+			})
+		return
+	}
+
+	var p UpdateProductRequest
+	if err := c.ShouldBindJSON(&p); err != nil {
+		c.JSON(http.StatusInternalServerError,
+			gin.H{
+				"error": utils.ErrorResponse{
+					Code:    "invalid_request",
+					Message: err.Error(),
+				},
+			})
+		return
+	}
+
+	updatedProduct, err := h.service.Update(c.Request.Context(), params.ID, p)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError,
+			gin.H{
+				"error": utils.ErrorResponse{
+					Code:    "internal_error",
+					Message: "unexpected behaviour",
+				},
+			})
+		return
+	}
+
+	c.JSON(http.StatusOK, &ProductResponse{
+		ID:        updatedProduct.ID,
+		Title:     updatedProduct.Title,
+		Price:     updatedProduct.Price,
+		Stock:     updatedProduct.Stock,
+		CreatedAt: updatedProduct.CreatedAt,
+		UpdatedAt: updatedProduct.UpdatedAt,
 	})
 }
 
@@ -126,4 +195,5 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	router.GET("/products", h.handleGetProducts)
 	router.GET("/products/:id", h.handleGetProductByID)
 	router.POST("/products", h.handlerCreateProduct)
+	router.PATCH("/products/:id", h.handlerUpdateProduct)
 }

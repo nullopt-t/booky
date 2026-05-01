@@ -20,3 +20,4 @@ BEFORE UPDATE ON products
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+CREATE INDEX IF NOT EXISTS products_stock_idx ON products (stock) WHERE stock < 10;

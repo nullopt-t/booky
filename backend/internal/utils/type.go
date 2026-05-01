@@ -1,6 +1,15 @@
 package utils
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/google/uuid"
+)
+
+func IsValidUUID(s string) bool {
+	_, err := uuid.Parse(s)
+	return err == nil
+}
 
 func StringToInt(s string, defaultVal int) int {
 	num, err := strconv.Atoi(s)

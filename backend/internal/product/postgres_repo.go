@@ -3,6 +3,7 @@ package product
 import (
 	"booky-backend/internal/db"
 	"booky-backend/internal/domain"
+	"booky-backend/internal/utils"
 	"context"
 	"fmt"
 )
@@ -31,6 +32,20 @@ func (r *PostgresRepo) Create(ctx context.Context, req CreateProductRequest) (*d
 	return &p, nil
 }
 
+func (r *PostgresRepo) Update(ctx context.Context, id string, req UpdateProductRequest) (*domain.Product, error) {
+	var p domain.Product
+	query := `UPDATE products SET title=COALESCE($2, title), price=COALESCE($3, price), stock=COALESCE($4, stock), updated_at=now() WHERE id=$1 RETURNING id, title, price, stock, created_at, updated_at`
+	args := []interface{}{id, req.Title, req.Price, req.Stock}
+
+	err := r.db.GetPool().QueryRow(ctx, query, args...).Scan(&p.ID, &p.Title, &p.Price, &p.Stock, &p.CreatedAt, &p.UpdatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("update product: %w", err)
+	}
+
+	return &p, nil
+}
+
 func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*domain.Product, error) {
 	var p domain.Product
 
@@ -46,7 +61,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*domain.Product,
 	return &p, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, q db.PaginationQuery) (*PaginatedProductsResponse, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, q utils.PaginationQuery) (*utils.PageResult[domain.Product], error) {
 	offset := (q.Page - 1) * q.Limit
 	rows, err := r.db.GetPool().Query(ctx,
 		`SELECT id, title, price, stock, created_at, updated_at FROM products LIMIT $1 OFFSET $2`, q.Limit, offset)
@@ -73,10 +88,11 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q db.PaginationQuery) (*Pagin
 		return nil, err
 	}
 
-	return &PaginatedProductsResponse{
-		Products: products,
-		Page:     q.Page,
-		Limit:    q.Limit,
-		Total:    count,
+	return &utils.PageResult[domain.Product]{
+		Items: products,
+		Page:  q.Page,
+		Limit: q.Limit,
+		Total: count,
 	}, nil
 }
+

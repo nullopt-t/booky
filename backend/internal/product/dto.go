@@ -1,7 +1,6 @@
 package product
 
 import (
-	"booky-backend/internal/domain"
 	"time"
 )
 
@@ -14,15 +13,21 @@ type ProductResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type ProductsResponse struct {
+	Products []ProductResponse `json:"data"`
+	Page     int               `json:"page"`
+	Limit    int               `json:"limit"`
+	Total    int               `json:"total"`
+}
+
 type CreateProductRequest struct {
 	Title string `json:"title" binding:"required"`
 	Price int    `json:"price" binding:"required"`
 	Stock int    `json:"stock" binding:"required"`
 }
 
-type PaginatedProductsResponse struct {
-	Products []domain.Product `json:"products"`
-	Page     int              `json:"page"`
-	Limit    int              `json:"limit"`
-	Total    int              `json:"total"`
+type UpdateProductRequest struct {
+	Title *string `json:"title,omitempty"`
+	Price *int    `json:"price,omitempty"`
+	Stock *int    `json:"stock,omitempty"`
 }

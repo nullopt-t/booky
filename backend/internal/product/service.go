@@ -1,8 +1,8 @@
 package product
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/domain"
+	"booky-backend/internal/utils"
 	"context"
 )
 
@@ -18,7 +18,11 @@ func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*domain
 	return s.repo.Create(ctx, req)
 }
 
-func (s *Service) GetAll(ctx context.Context, q db.PaginationQuery) (*PaginatedProductsResponse, error) {
+func (s *Service) Update(ctx context.Context, id string, req UpdateProductRequest) (*domain.Product, error) {
+	return s.repo.Update(ctx, id, req)
+}
+
+func (s *Service) GetAll(ctx context.Context, q utils.PaginationQuery) (*utils.PageResult[domain.Product], error) {
 	return s.repo.GetAll(ctx, q)
 }
 
