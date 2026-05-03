@@ -1,8 +1,20 @@
 package order
 
 import (
-	"booky-backend/internal/domain"
 	"time"
+)
+
+type OrderStatus string
+
+const (
+	OrderStatusPending    OrderStatus = "pending"
+	OrderStatusPaid       OrderStatus = "paid"
+	OrderStatusConfirmed  OrderStatus = "confirmed"
+	OrderStatusProcessing OrderStatus = "processing"
+	OrderStatusShipped    OrderStatus = "shipped"
+	OrderStatusDelivered  OrderStatus = "delivered"
+	OrderStatusCancelled  OrderStatus = "cancelled"
+	OrderStatusRefuneded  OrderStatus = "refuneded"
 )
 
 type OrderItemResponse struct {
@@ -13,7 +25,7 @@ type OrderItemResponse struct {
 
 type OrderResponse struct {
 	ID         string              `json:"id"`
-	Status     domain.OrderStatus  `json:"status"`
+	Status     OrderStatus         `json:"status"`
 	TotalPrice int                 `json:"total_price"`
 	Items      []OrderItemResponse `json:"items"`
 	CreatedAt  time.Time           `json:"created_at"`

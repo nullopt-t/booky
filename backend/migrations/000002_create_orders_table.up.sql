@@ -55,3 +55,5 @@ CREATE INDEX IF NOT EXISTS order_items_product_id_idx ON order_items (product_id
 
 -- Optional but recommended for future filtering
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status);
+
+

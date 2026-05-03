@@ -3,25 +3,26 @@ package order
 import (
 	"booky-backend/internal/db"
 	"booky-backend/internal/domain"
+	"booky-backend/internal/logger"
 	"booky-backend/internal/utils"
 	"context"
 	"errors"
-	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
 var (
-	ErrInDatabase          = errors.New("database error")
-	ErrNoItems             = errors.New("no items in order")
-	ErrInsufficientQuanity = errors.New("insufficient quantity")
-	ErrInvalidQuantity     = errors.New("invalid quantity")
-	ErrProductNotFound     = errors.New("product not found")
-	ErrInvalidProductID    = errors.New("invalid product ID")
-	ErrOrderNotFound       = errors.New("order not found")
-	ErrOrderNotPending     = errors.New("order is not pending")
+	ErrInDatabase            = errors.New("database error")
+	ErrNoItems               = errors.New("no items in order")
+	ErrInsufficientQuanity   = errors.New("insufficient quantity")
+	ErrInvalidQuantity       = errors.New("invalid quantity")
+	ErrProductNotFound       = errors.New("product not found")
+	ErrInvalidProductID      = errors.New("invalid product ID")
+	ErrOrderNotFound         = errors.New("order not found")
+	ErrOrderNotPending       = errors.New("order is not pending")
+	ErrOrderAlreadyCancelled = errors.New("order already cancelled")
+	ErrOrderAlreadyConfirmed = errors.New("order already confirmed")
 )
 
 type PostgresRepo struct {
@@ -36,12 +37,14 @@ func NewPostgresRepo(db *db.DB) *PostgresRepo {
 
 func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*domain.Order, error) {
 	if len(order.Items) == 0 {
+		logger.Log(logger.DEBUG, "no items in the order")
 		return nil, ErrNoItems
 	}
 
 	tx, err := r.db.GetPool().Begin(ctx)
 	if err != nil {
-		return nil, err
+		logger.Log(logger.DEBUG, "failed to begin transaction: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	defer func() {
@@ -52,7 +55,8 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*d
 	var createdOrder domain.Order
 	err = tx.QueryRow(ctx, `INSERT INTO orders(total_price) VALUES ($1) RETURNING id`, 0).Scan(&orderID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new order: %w", err)
+		logger.Log(logger.DEBUG, "failed to insert new order :%v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	var totalPrice int
@@ -61,22 +65,27 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*d
 		err := tx.QueryRow(ctx, "SELECT stock, price FROM products WHERE id = $1 FOR UPDATE", item.ProductID).Scan(&stock, &price)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				logger.Log(logger.DEBUG, "failed to get product stock and price: %v", err.Error())
 				return nil, ErrProductNotFound
 			}
-			return nil, fmt.Errorf("failed to get product stock and price: %w", err)
+			logger.Log(logger.DEBUG, "failed to get product stock and price: %v", err.Error())
+			return nil, ErrInDatabase
 		}
 		if stock < item.Quantity {
+			logger.Log(logger.DEBUG, "insufficient quanity of product %v", item.ProductID)
 			return nil, ErrInsufficientQuanity
 		}
 
 		_, err = tx.Exec(ctx, "UPDATE products SET stock = stock - $1 WHERE id = $2", item.Quantity, item.ProductID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update product stock: %w", err)
+			logger.Log(logger.DEBUG, "failed to update product stock: %v", err.Error())
+			return nil, ErrInDatabase
 		}
 
 		_, err = tx.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity, purchase_price) VALUES ($1, $2, $3, $4)`, orderID, item.ProductID, item.Quantity, price)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert order item: %w", err)
+			logger.Log(logger.DEBUG, "failed to insert order item: %v", err.Error())
+			return nil, ErrInDatabase
 		}
 
 		createdOrder.Items = append(createdOrder.Items, domain.OrderItem{
@@ -90,11 +99,13 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*d
 
 	err = tx.QueryRow(ctx, "UPDATE orders SET total_price = $1 WHERE id = $2 RETURNING id, status, total_price, created_at, updated_at", totalPrice, orderID).Scan(&createdOrder.ID, &createdOrder.Status, &createdOrder.TotalPrice, &createdOrder.CreatedAt, &createdOrder.UpdatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update order total price: %w", err)
+		logger.Log(logger.DEBUG, "failed to update order total price: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		logger.Log(logger.DEBUG, "failed to commit transaction: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	return &createdOrder, nil
@@ -103,41 +114,49 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*d
 func (r *PostgresRepo) Cancel(ctx context.Context, orderID string) error {
 	tx, err := r.db.GetPool().Begin(ctx)
 	if err != nil {
-		log.Println(err)
+		logger.Log(logger.DEBUG, "failed to begin transaction: %v", err.Error())
 		return ErrInDatabase
 	}
 
 	defer tx.Rollback(ctx)
 
-	var status domain.OrderStatus
+	var status OrderStatus
 	err = tx.QueryRow(ctx, "SELECT status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOrderNotFound
 		}
-		log.Println(err)
+		logger.Log(logger.DEBUG, "failed to get order status: %v", err.Error())
 		return ErrInDatabase
 	}
+	if status == OrderStatusCancelled {
+		logger.Log(logger.DEBUG, "order is already cancelled")
+		return ErrOrderAlreadyCancelled
+	}
 
-	if status != domain.OrderStatusPending {
+	if status != OrderStatusPending {
+		logger.Log(logger.DEBUG, "order is not pending")
 		return ErrOrderNotPending
 	}
 
 	_, err = tx.Exec(ctx, "UPDATE products SET stock = stock + (SELECT quantity FROM order_items WHERE order_id = $1 AND product_id = products.id) WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1)", orderID)
 	if err != nil {
-		return fmt.Errorf("failed to revert order items: %w", err)
+		logger.Log(logger.DEBUG, "failed to revert order items: %v", err.Error())
+		return ErrInDatabase
 	}
 
-	_, err = tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", domain.OrderStatusCancelled, orderID)
+	_, err = tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", OrderStatusCancelled, orderID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOrderNotFound
 		}
-		return fmt.Errorf("failed to cancel order: %w", err)
+		logger.Log(logger.DEBUG, "failed to cancel order: %v", err.Error())
+		return ErrInDatabase
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		logger.Log(logger.DEBUG, "failed to commit transaction: %v", err.Error())
+		return ErrInDatabase
 	}
 
 	return nil
@@ -146,36 +165,43 @@ func (r *PostgresRepo) Cancel(ctx context.Context, orderID string) error {
 func (r *PostgresRepo) Confirm(ctx context.Context, orderID string) error {
 	tx, err := r.db.GetPool().Begin(ctx)
 	if err != nil {
-		log.Println(err)
+		logger.Log(logger.DEBUG, "failed to begin transaction: %v", err.Error())
 		return ErrInDatabase
 	}
 
 	defer tx.Rollback(ctx)
 
-	var status domain.OrderStatus
+	var status OrderStatus
 	err = tx.QueryRow(ctx, "SELECT status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOrderNotFound
 		}
-		log.Println(err)
+		logger.Log(logger.DEBUG, "failed to get order status: %v", err.Error())
 		return ErrInDatabase
 	}
 
-	if status != domain.OrderStatusPending {
+	if status == OrderStatusConfirmed {
+		logger.Log(logger.DEBUG, "order is already confirmed")
+		return ErrOrderAlreadyConfirmed
+	}
+
+	if status != OrderStatusPending {
 		return ErrOrderNotPending
 	}
 
-	_, err = tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", domain.OrderStatusConfirmed, orderID)
+	_, err = tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", OrderStatusConfirmed, orderID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOrderNotFound
 		}
-		return fmt.Errorf("failed to confirm order: %w", err)
+		logger.Log(logger.DEBUG, "failed to confirm order: %v", err.Error())
+		return ErrInDatabase
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		logger.Log(logger.DEBUG, "failed to commit transaction: %v", err.Error())
+		return ErrInDatabase
 	}
 
 	return nil
@@ -197,25 +223,29 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrOrderNotFound
 		}
-		return nil, fmt.Errorf("failed to get order: %w", err)
+		logger.Log(logger.DEBUG, "failed to get order: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	var items = make([]domain.OrderItem, 0)
 	rows, err := r.db.GetPool().Query(ctx, "SELECT order_id, quantity, purchase_price FROM order_items WHERE order_id = $1 ORDER BY created_at DESC", id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get order items: %w", err)
+		logger.Log(logger.DEBUG, "failed to get order items: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	for rows.Next() {
 		var item domain.OrderItem
 		if err := rows.Scan(&item.ProductID, &item.Quantity, &item.PurchasePrice); err != nil {
-			return nil, fmt.Errorf("failed to scan order item: %w", err)
+			logger.Log(logger.DEBUG, "failed to scan order item: %v", err.Error())
+			return nil, ErrInDatabase
 		}
 		items = append(items, item)
 	}
 	defer rows.Close()
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to iterate over order items: %w", err)
+		logger.Log(logger.DEBUG, "failed to iterate over order items: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	order.Items = items
@@ -256,7 +286,8 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q utils.PaginationQuery) ([]*
 
 	rows, err := r.db.GetPool().Query(ctx, sql, args...)
 	if err != nil {
-		return nil, err
+		logger.Log(logger.DEBUG, "failed to get all orders: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 	defer rows.Close()
 
@@ -264,7 +295,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q utils.PaginationQuery) ([]*
 	for rows.Next() {
 		var (
 			orderID       string
-			status        domain.OrderStatus
+			status        OrderStatus
 			totalPrice    int
 			createdAt     time.Time
 			itemID        string
@@ -283,7 +314,8 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q utils.PaginationQuery) ([]*
 			&quantity,
 			&purchasePrice,
 		); err != nil {
-			return nil, err
+			logger.Log(logger.DEBUG, "failed to scan order: %v", err.Error())
+			return nil, ErrInDatabase
 		}
 
 		o, ok := ordersMap[orderID]
@@ -306,7 +338,8 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q utils.PaginationQuery) ([]*
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		logger.Log(logger.DEBUG, "failed to iterate over orders: %v", err.Error())
+		return nil, ErrInDatabase
 	}
 
 	// convert map to slice preserving order of created_at DESC

@@ -2,35 +2,22 @@ package domain
 
 import "time"
 
-type OrderStatus string
-
-const (
-	OrderStatusPending    OrderStatus = "pending"
-	OrderStatusConfirmed  OrderStatus = "confirmed"
-	OrderStatusPaid       OrderStatus = "paid"
-	OrderStatusProcessing OrderStatus = "processing"
-	OrderStatusShipped    OrderStatus = "shipped"
-	OrderStatusDelivered  OrderStatus = "delivered"
-	OrderStatusCancelled  OrderStatus = "cancelled"
-	OrderStatusRefuneded  OrderStatus = "refuneded"
-)
-
 type OrderItem struct {
-	ProductID     string `json:"product_id" binding:"required"`
-	Quantity      int    `json:"quantity" binding:"required,min=1"`
-	PurchasePrice int    `json:"purchase_price,omitempty"`
+	ProductID     string
+	Quantity      int
+	PurchasePrice int
 }
 
 type Order struct {
 	// order data
-	ID         string      `json:"id"`
-	Status     OrderStatus `json:"status"`
-	TotalPrice int         `json:"total_price"`
+	ID         string
+	Status     string
+	TotalPrice int
 
 	// items data
-	Items []OrderItem `json:"items"`
+	Items []OrderItem
 
 	// timestamps
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

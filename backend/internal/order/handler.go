@@ -75,7 +75,7 @@ func (h *Hanlder) handleCreateOrder(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"data": OrderResponse{
 		ID:         createdOrder.ID,
-		Status:     createdOrder.Status,
+		Status:     OrderStatus(createdOrder.Status),
 		Items:      items,
 		TotalPrice: createdOrder.TotalPrice,
 		CreatedAt:  createdOrder.CreatedAt,
@@ -185,7 +185,7 @@ func (h *Hanlder) handleGetOrder(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": OrderResponse{
 		ID:         order.ID,
-		Status:     order.Status,
+		Status:     OrderStatus(order.Status),
 		TotalPrice: order.TotalPrice,
 		Items:      items,
 		CreatedAt:  order.CreatedAt,
