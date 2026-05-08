@@ -1,7 +1,7 @@
 package order
 
 import (
-	"booky-backend/internal/utils"
+	"booky-backend/internal/trans"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +18,7 @@ func NewHandler(s *Service) *Hanlder {
 func (h *Hanlder) handleCreateOrder(c *gin.Context) {
 	var order CreateOrderRequest
 	if err := c.ShouldBindJSON(&order); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
 			Message: err.Error(),
 		}})
@@ -29,34 +29,34 @@ func (h *Hanlder) handleCreateOrder(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case ErrInvalidProductID:
-			c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+			c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 				Code:    "invalid_product_id",
 				Message: "invalid product id",
 			}})
 		case ErrProductNotFound:
-			c.JSON(http.StatusNotFound, gin.H{"error": utils.ErrorResponse{
+			c.JSON(http.StatusNotFound, gin.H{"error": trans.ErrorResponse{
 				Code:    "product_not_found",
 				Message: "product not found",
 			}})
 		case ErrInvalidQuantity:
-			c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+			c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 				Code:    "invalid_quantity",
 				Message: "invalid quantity",
 			}})
 		case ErrNoItems:
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "no_items",
 					Message: "no items in order",
 				},
 			})
 		case ErrInsufficientQuanity:
-			c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+			c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 				Code:    "insufficient_stock",
 				Message: "not enough stock available",
 			}})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrorResponse{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
 				Code:    "internal_error",
 				Message: "unexpected behaviour",
 			}})
@@ -88,7 +88,7 @@ func (h *Hanlder) handleCancelOrder(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindUri(&params); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
 			Message: "invalid request",
 		}})
@@ -98,17 +98,17 @@ func (h *Hanlder) handleCancelOrder(c *gin.Context) {
 	err := h.service.Cancel(c.Request.Context(), params.OrderID)
 	switch err {
 	case ErrOrderNotPending:
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "order_not_pending",
 			Message: "order is not pending",
 		}})
 	case ErrOrderNotFound:
-		c.JSON(http.StatusNotFound, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusNotFound, gin.H{"error": trans.ErrorResponse{
 			Code:    "order_not_found",
 			Message: "order not found",
 		}})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})
@@ -123,7 +123,7 @@ func (h *Hanlder) handleConfirmOrder(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindUri(&params); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
 			Message: "invalid request",
 		}})
@@ -133,17 +133,17 @@ func (h *Hanlder) handleConfirmOrder(c *gin.Context) {
 	err := h.service.Confirm(c.Request.Context(), params.OrderID)
 	switch err {
 	case ErrOrderNotPending:
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "order_not_pending",
 			Message: "order is not pending",
 		}})
 	case ErrOrderNotFound:
-		c.JSON(http.StatusNotFound, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusNotFound, gin.H{"error": trans.ErrorResponse{
 			Code:    "order_not_found",
 			Message: "order not found",
 		}})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})
@@ -158,7 +158,7 @@ func (h *Hanlder) handleGetOrder(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindUri(&params); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
 			Message: "invalid request",
 		}})
@@ -167,7 +167,7 @@ func (h *Hanlder) handleGetOrder(c *gin.Context) {
 
 	order, err := h.service.GetByID(c.Request.Context(), params.OrderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})
@@ -194,9 +194,9 @@ func (h *Hanlder) handleGetOrder(c *gin.Context) {
 }
 
 func (h *Hanlder) handleGetOrders(c *gin.Context) {
-	var query utils.PaginationQuery
+	var query trans.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
 			Message: err.Error(),
 		}})
@@ -211,9 +211,9 @@ func (h *Hanlder) handleGetOrders(c *gin.Context) {
 		query.Page = 1
 	}
 
-	orders, err := h.service.GetAll(c.Request.Context(), query)
+	orders, page, err := h.service.GetAll(c.Request.Context(), query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": utils.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})
@@ -223,9 +223,9 @@ func (h *Hanlder) handleGetOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data": orders,
 		"meta": gin.H{
-			"page":  query.Page,
-			"limit": query.Limit,
-			"total": len(orders),
+			"page":  page.Index,
+			"limit": page.Limit,
+			"total": page.Total,
 		},
 	})
 }

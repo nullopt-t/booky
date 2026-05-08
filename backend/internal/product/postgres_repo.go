@@ -2,8 +2,7 @@ package product
 
 import (
 	"booky-backend/internal/db"
-	"booky-backend/internal/domain"
-	"booky-backend/internal/utils"
+	"booky-backend/internal/trans"
 	"context"
 	"fmt"
 )
@@ -18,8 +17,8 @@ func NewPostgresRepo(db *db.DB) *PostgresRepo {
 	}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, req CreateProductRequest) (*domain.Product, error) {
-	var p domain.Product
+func (r *PostgresRepo) Create(ctx context.Context, req CreateProductRequest) (*Product, error) {
+	var p Product
 	err := r.db.GetPool().QueryRow(ctx,
 		`INSERT INTO products (title, price, stock)
 		 VALUES ($1, $2, $3) RETURNING id, title, price, stock, created_at, updated_at`,
@@ -32,8 +31,8 @@ func (r *PostgresRepo) Create(ctx context.Context, req CreateProductRequest) (*d
 	return &p, nil
 }
 
-func (r *PostgresRepo) Update(ctx context.Context, id string, req UpdateProductRequest) (*domain.Product, error) {
-	var p domain.Product
+func (r *PostgresRepo) Update(ctx context.Context, id string, req UpdateProductRequest) (*Product, error) {
+	var p Product
 	query := `UPDATE products SET title=COALESCE($2, title), price=COALESCE($3, price), stock=COALESCE($4, stock), updated_at=now() WHERE id=$1 RETURNING id, title, price, stock, created_at, updated_at`
 	args := []interface{}{id, req.Title, req.Price, req.Stock}
 
@@ -46,8 +45,8 @@ func (r *PostgresRepo) Update(ctx context.Context, id string, req UpdateProductR
 	return &p, nil
 }
 
-func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*domain.Product, error) {
-	var p domain.Product
+func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*Product, error) {
+	var p Product
 
 	err := r.db.GetPool().QueryRow(ctx,
 		`SELECT id, title, price, stock, created_at, updated_at FROM products WHERE id=$1`,
@@ -61,38 +60,38 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*domain.Product,
 	return &p, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, q utils.PaginationQuery) (*utils.PageResult[domain.Product], error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, q trans.PaginationQuery) ([]Product, *trans.Page, error) {
 	offset := (q.Page - 1) * q.Limit
 	rows, err := r.db.GetPool().Query(ctx,
 		`SELECT id, title, price, stock, created_at, updated_at FROM products LIMIT $1 OFFSET $2`, q.Limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 
-	var products = []domain.Product{}
+	var products = []Product{}
 	for rows.Next() {
-		var p domain.Product
+		var p Product
 		rows.Scan(&p.ID, &p.Title, &p.Price, &p.Stock, &p.CreatedAt, &p.UpdatedAt)
 		products = append(products, p)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// query the products count
 	var count int
 	err = r.db.GetPool().QueryRow(ctx, "SELECT COUNT(*) FROM products").Scan(&count)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &utils.PageResult[domain.Product]{
-		Items: products,
-		Page:  q.Page,
+	resultPage := &trans.Page{
+		Index:  q.Page,
 		Limit: q.Limit,
 		Total: count,
-	}, nil
-}
+	}
 
+	return products, resultPage, nil
+}

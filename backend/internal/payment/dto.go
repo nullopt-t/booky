@@ -4,22 +4,20 @@ import "time"
 
 type PaymentStatus string
 
-const (
-	PaymentStatusPending   PaymentStatus = "pending"
-	PaymentStatusPaid      PaymentStatus = "paid"
-	PaymentStatusFailed    PaymentStatus = "failed"
-	PaymentStatusCancelled PaymentStatus = "cancelled"
-)
 
-type Payment struct {
-	ID          string
-	OrderID     string
-	Amount      int
-	Status      PaymentStatus
-	Provider    string
-	ProviderRef string
-	PaidAt      *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+
+type PaymentResponse struct {
+	ID          string     `json:"id"`
+	OrderID     string     `json:"order_id"`
+	Amount      float64    `json:"amount"`
+	Status      string     `json:"status"`
+	Provider    string     `json:"provider"`
+	ProviderRef string     `json:"provider_ref"`
+	PaidAt      *time.Time `json:"paid_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
+type CreatePaymentRequest struct {
+	OrderID string `json:"order_id" binding:"required"`
+}

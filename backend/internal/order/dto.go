@@ -4,18 +4,7 @@ import (
 	"time"
 )
 
-type OrderStatus string
 
-const (
-	OrderStatusPending    OrderStatus = "pending"
-	OrderStatusPaid       OrderStatus = "paid"
-	OrderStatusConfirmed  OrderStatus = "confirmed"
-	OrderStatusProcessing OrderStatus = "processing"
-	OrderStatusShipped    OrderStatus = "shipped"
-	OrderStatusDelivered  OrderStatus = "delivered"
-	OrderStatusCancelled  OrderStatus = "cancelled"
-	OrderStatusRefuneded  OrderStatus = "refuneded"
-)
 
 type OrderItemResponse struct {
 	ProductID     string `json:"product_id"`
@@ -33,8 +22,8 @@ type OrderResponse struct {
 }
 
 type CreateOrderItemRequest struct {
-	ProductID string `json:"product_id" binding:"required,uuid"`
-	Quantity  int    `json:"quantity" binding:"required,min=1,max=100"`
+	ProductID     string `json:"product_id" binding:"required,uuid"`
+	Quantity      int    `json:"quantity" binding:"required,min=1,max=100"`
 }
 
 type CreateOrderRequest struct {

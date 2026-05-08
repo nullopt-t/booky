@@ -1,7 +1,7 @@
 package product
 
 import (
-	"booky-backend/internal/utils"
+	"booky-backend/internal/trans"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,11 +16,11 @@ func NewHandler(s *Service) *Handler {
 }
 
 func (h *Handler) handleGetProducts(c *gin.Context) {
-	var query utils.PaginationQuery
+	var query trans.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -36,11 +36,11 @@ func (h *Handler) handleGetProducts(c *gin.Context) {
 		query.Page = 1
 	}
 
-	ppr, err := h.service.GetAll(c.Request.Context(), query)
+	result, page, err := h.service.GetAll(c.Request.Context(), query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -49,7 +49,7 @@ func (h *Handler) handleGetProducts(c *gin.Context) {
 	}
 
 	var products []ProductResponse
-	for _, p := range ppr.Items {
+	for _, p := range result {
 		products = append(products, ProductResponse{
 			ID:        p.ID,
 			Title:     p.Title,
@@ -62,9 +62,9 @@ func (h *Handler) handleGetProducts(c *gin.Context) {
 
 	c.JSON(200, &ProductsResponse{
 		Products: products,
-		Page:     ppr.Page,
-		Limit:    ppr.Limit,
-		Total:    ppr.Total,
+		Page:     page.Index,
+		Limit:    page.Limit,
+		Total:    page.Total,
 	})
 }
 
@@ -76,7 +76,7 @@ func (h *Handler) handleGetProductByID(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -88,7 +88,7 @@ func (h *Handler) handleGetProductByID(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -111,7 +111,7 @@ func (h *Handler) handlerCreateProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&p); err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -123,7 +123,7 @@ func (h *Handler) handlerCreateProduct(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -149,7 +149,7 @@ func (h *Handler) handlerUpdateProduct(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -161,7 +161,7 @@ func (h *Handler) handlerUpdateProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&p); err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -173,7 +173,7 @@ func (h *Handler) handlerUpdateProduct(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": utils.ErrorResponse{
+				"error": trans.ErrorResponse{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},

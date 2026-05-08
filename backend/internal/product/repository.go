@@ -1,14 +1,13 @@
 package product
 
 import (
-	"booky-backend/internal/domain"
-	"booky-backend/internal/utils"
+	"booky-backend/internal/trans"
 	"context"
 )
 
-type Repository interface {
-	Create(ctx context.Context, p CreateProductRequest) (*domain.Product, error)
-	Update(ctx context.Context, id string, p UpdateProductRequest) (*domain.Product, error)
-	GetByID(ctx context.Context, id string) (*domain.Product, error)
-	GetAll(ctx context.Context, q utils.PaginationQuery) (*utils.PageResult[domain.Product], error)
+type ProductRepository interface {
+	Create(ctx context.Context, p CreateProductRequest) (*Product, error)
+	Update(ctx context.Context, id string, p UpdateProductRequest) (*Product, error)
+	GetByID(ctx context.Context, id string) (*Product, error)
+	GetAll(ctx context.Context, q trans.PaginationQuery) ([]Product, *trans.Page, error)
 }

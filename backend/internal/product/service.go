@@ -1,31 +1,30 @@
 package product
 
 import (
-	"booky-backend/internal/domain"
-	"booky-backend/internal/utils"
+	"booky-backend/internal/trans"
 	"context"
 )
 
 type Service struct {
-	repo Repository
+	repo ProductRepository
 }
 
-func NewService(r Repository) *Service {
+func NewService(r ProductRepository) *Service {
 	return &Service{repo: r}
 }
 
-func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*domain.Product, error) {
+func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*Product, error) {
 	return s.repo.Create(ctx, req)
 }
 
-func (s *Service) Update(ctx context.Context, id string, req UpdateProductRequest) (*domain.Product, error) {
+func (s *Service) Update(ctx context.Context, id string, req UpdateProductRequest) (*Product, error) {
 	return s.repo.Update(ctx, id, req)
 }
 
-func (s *Service) GetAll(ctx context.Context, q utils.PaginationQuery) (*utils.PageResult[domain.Product], error) {
+func (s *Service) GetAll(ctx context.Context, q trans.PaginationQuery) ([]Product, *trans.Page, error) {
 	return s.repo.GetAll(ctx, q)
 }
 
-func (s *Service) GetByID(ctx context.Context, id string) (*domain.Product, error) {
+func (s *Service) GetByID(ctx context.Context, id string) (*Product, error) {
 	return s.repo.GetByID(ctx, id)
 }
