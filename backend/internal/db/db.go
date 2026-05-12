@@ -6,58 +6,84 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type DBQE interface {
+	Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row
+}
 
 type DB struct {
-	pool *pgxpool.Pool
-	cfg  *config.DatabaseConfig
+	Pool *pgxpool.Pool
 }
 
-func NewDatabase(cfg *config.DatabaseConfig) *DB {
-	return &DB{cfg: cfg}
-}
-
-func (db *DB) Connect(ctx context.Context) error {
+func ConnectDB(ctx context.Context, cfg *config.Config) (*DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		db.cfg.DBHost,
-		db.cfg.DBPort,
-		db.cfg.DBUser,
-		db.cfg.DBPassword,
-		db.cfg.DBName,
+		cfg.DBCfg.DBHost,
+		cfg.DBCfg.DBPort,
+		cfg.DBCfg.DBUser,
+		cfg.DBCfg.DBPassword,
+		cfg.DBCfg.DBName,
 	)
 
 	var err error
 	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return fmt.Errorf("db connection failed : %w", err)
+		return nil, fmt.Errorf("db connection failed : %w", err)
 	}
 
-	poolConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		_, err := conn.Exec(ctx, "DISCARD PLANS")
-		return err
-	}
-
-	db.pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		return fmt.Errorf("db connection failed : %w", err)
+		return nil, fmt.Errorf("db connection failed : %w", err)
 	}
 
-	err = db.pool.Ping(ctx)
+	err = pool.Ping(ctx)
 	if err != nil {
-		return fmt.Errorf("db connection failed : %w", err)
+		return nil, fmt.Errorf("db connection failed : %w", err)
 
 	}
 
-	return nil
+	return &DB{Pool: pool}, nil
 }
 
 func (db *DB) Close() {
-	db.pool.Close()
+	if db.Pool != nil {
+		db.Pool.Close()
+	}
 }
 
-func (db *DB) GetPool() *pgxpool.Pool {
-	return db.pool
+func (db *DB) Ping(ctx context.Context) error {
+	return db.Pool.Ping(ctx)
+}
+
+func (db *DB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return db.Pool.Exec(ctx, sql, args...)
+}
+
+func (db *DB) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return db.Pool.QueryRow(ctx, sql, args...)
+}
+
+func (db *DB) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return db.Pool.Query(ctx, sql, args...)
+}
+
+type Tx struct {
+	tx pgx.Tx
+}
+
+func (t *Tx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return t.tx.Exec(ctx, sql, args...)
+}
+
+func (t *Tx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return t.tx.QueryRow(ctx, sql, args...)
+}
+
+func (t *Tx) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return t.tx.Query(ctx, sql, args...)
 }
