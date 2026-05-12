@@ -16,7 +16,7 @@ const (
 )
 
 type OrderItem struct {
-	ItemID        string
+	ProductID        string
 	Quantity      int
 	PurchasePrice int
 }
@@ -24,7 +24,7 @@ type OrderItem struct {
 type Order struct {
 	// order data
 	ID         string
-	Status     string
+	Status     OrderStatus
 	TotalPrice int
 
 	// items data

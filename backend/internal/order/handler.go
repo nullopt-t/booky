@@ -67,7 +67,7 @@ func (h *Hanlder) CreateOrder(c *gin.Context) {
 	var items = make([]OrderItemResponse, 0, len(createdOrder.Items))
 	for _, item := range createdOrder.Items {
 		items = append(items, OrderItemResponse{
-			ItemID:        item.ItemID,
+			ProductID:     item.ProductID,
 			Quantity:      item.Quantity,
 			PurchasePrice: item.PurchasePrice,
 		})
@@ -83,10 +83,7 @@ func (h *Hanlder) CreateOrder(c *gin.Context) {
 }
 
 func (h *Hanlder) CancelOrder(c *gin.Context) {
-	params := struct {
-		OrderID string `uri:"id" binding:"required,uuid"`
-	}{}
-
+	var params IDParams
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
@@ -118,10 +115,7 @@ func (h *Hanlder) CancelOrder(c *gin.Context) {
 }
 
 func (h *Hanlder) ConfirmOrder(c *gin.Context) {
-	params := struct {
-		OrderID string `uri:"id" binding:"required,uuid"`
-	}{}
-
+	var params IDParams
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
@@ -153,10 +147,7 @@ func (h *Hanlder) ConfirmOrder(c *gin.Context) {
 }
 
 func (h *Hanlder) GetOrderByID(c *gin.Context) {
-	params := struct {
-		OrderID string `uri:"id" binding:"required,uuid"`
-	}{}
-
+	var params IDParams
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
 			Code:    "invalid_request",
@@ -177,7 +168,7 @@ func (h *Hanlder) GetOrderByID(c *gin.Context) {
 	var items []OrderItemResponse
 	for _, item := range order.Items {
 		items = append(items, OrderItemResponse{
-			ItemID:        item.ItemID,
+			ProductID:     item.ProductID,
 			Quantity:      item.Quantity,
 			PurchasePrice: item.PurchasePrice,
 		})

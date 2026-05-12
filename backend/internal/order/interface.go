@@ -1,38 +1,32 @@
 package order
 
 import (
+	"booky-backend/internal/db"
 	"booky-backend/internal/trans"
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type OrderRepository interface {
-	// Create creates a new order with items already included in the request context
-	Create(ctx context.Context, order *CreateOrderRequest) (*Order, error)
+	Create(ctx context.Context, db db.DBQE, order *CreateOrderRequest) (*Order, error)
 
-	// GetByID returns a single order with its items
-	GetByID(ctx context.Context, orderID string) (*Order, error)
+	GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*Order, error)
 
-	// GetAll returns paginated orders list
-	GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*Order, *trans.Page, error)
+	GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*Order, *trans.Page, error)
 
-	TransitionStatus(ctx context.Context, orderID string, from, to OrderStatus) error
+	TransitionStatus(ctx context.Context, db db.DBQE, orderID uuid.UUID, from, to OrderStatus) error
 
-	// LockForUpdate locks order row for safe transactional operations
-	// (used inside payment/webhook flows)
-	LockForUpdate(ctx context.Context, orderID string) (*Order, error)
-
-	// UpdateTotalPrice recalculates or sets total price
-	UpdateTotalPrice(ctx context.Context, orderID string, total int) error
+	UpdateTotalPrice(ctx context.Context, db db.DBQE, orderID uuid.UUID, total int) error
 }
 
 type OrderService interface {
 	Create(ctx context.Context, req *CreateOrderRequest) (*Order, error)
-	GetByID(ctx context.Context, orderID string) (*Order, error)
+	GetByID(ctx context.Context, orderID uuid.UUID) (*Order, error)
 	GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*Order, *trans.Page, error)
-	Cancel(ctx context.Context, orderID string) error
-	Confirm(ctx context.Context, orderID string) error
+	Cancel(ctx context.Context, orderID uuid.UUID) error
+	Confirm(ctx context.Context, orderID uuid.UUID) error
 }
 
 type OrderHandler interface {

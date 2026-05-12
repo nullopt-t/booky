@@ -2,10 +2,12 @@ package order
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type OrderItemResponse struct {
-	ItemID        string `json:"item_id"`
+	ProductID     string `json:"product_id"`
 	Quantity      int    `json:"quantity"`
 	PurchasePrice int    `json:"purchase_price"`
 }
@@ -20,8 +22,8 @@ type OrderResponse struct {
 }
 
 type CreateOrderItemRequest struct {
-	ItemID   string `json:"item_id" binding:"required,uuid"`
-	Quantity int    `json:"quantity" binding:"required,min=1,max=100"`
+	ProductID string `json:"product_id" binding:"required,uuid"`
+	Quantity  int    `json:"quantity" binding:"required,min=1,max=100"`
 }
 
 type CreateOrderRequest struct {
@@ -30,8 +32,13 @@ type CreateOrderRequest struct {
 
 type CreateOrderResponse struct {
 	ID         string              `json:"id"`
-	Status     string              `json:"status"`
+	Status     OrderStatus         `json:"status"`
 	Items      []OrderItemResponse `json:"items"`
 	TotalPrice int                 `json:"total_price"`
 	CreatedAt  time.Time           `json:"created_at"`
+}
+
+
+type IDParams struct {
+	OrderID uuid.UUID `uri:"id" binding:"required,uuid"`
 }
