@@ -46,13 +46,12 @@ VALUES
 
 -- Seed dummy products
 INSERT INTO
-    products (id, title, price, stock, created_at, updated_at)
+    products (id, title, price, created_at, updated_at)
 VALUES
     (
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
         'The Go Programming Language',
         4500,
-        25,
         NOW () - INTERVAL '30 days',
         NOW ()
     ),
@@ -60,7 +59,6 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
         'Clean Code',
         3200,
-        15,
         NOW () - INTERVAL '25 days',
         NOW ()
     ),
@@ -68,7 +66,6 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
         'Design Patterns',
         2800,
-        8,
         NOW () - INTERVAL '20 days',
         NOW ()
     ),
@@ -76,7 +73,6 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04',
         'PostgreSQL Up & Running',
         3900,
-        12,
         NOW () - INTERVAL '15 days',
         NOW ()
     ),
@@ -84,7 +80,6 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05',
         'Microservices Patterns',
         5200,
-        5,
         NOW () - INTERVAL '10 days',
         NOW ()
     ),
@@ -92,7 +87,6 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06',
         'Kubernetes in Action',
         4800,
-        0,
         NOW () - INTERVAL '5 days',
         NOW ()
     ),
@@ -100,7 +94,6 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07',
         'Domain-Driven Design',
         4200,
-        20,
         NOW () - INTERVAL '3 days',
         NOW ()
     ),
@@ -108,8 +101,65 @@ VALUES
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08',
         'System Design Interview',
         3500,
-        50,
         NOW () - INTERVAL '1 day',
+        NOW ()
+    );
+
+-- Seed dummy inventories
+INSERT INTO
+    inventories (
+        product_id,
+        available_quantity,
+        created_at,
+        updated_at
+    )
+VALUES
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+        10,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
+        15,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
+        20,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04',
+        25,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05',
+        30,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06',
+        35,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07',
+        40,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08',
+        45,
+        NOW (),
         NOW ()
     );
 
@@ -154,10 +204,18 @@ VALUES
 
 -- Seed dummy orders with various statuses
 INSERT INTO
-    orders (id, status, total_price, created_at, updated_at)
+    orders (
+        id,
+        user_id,
+        status,
+        total_price,
+        created_at,
+        updated_at
+    )
 VALUES
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
+        '20eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'delivered',
         7700,
         NOW () - INTERVAL '20 days',
@@ -165,6 +223,7 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02',
+        '30eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'shipped',
         4500,
         NOW () - INTERVAL '10 days',
@@ -172,6 +231,7 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
+        '30eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'pending',
         9700,
         NOW () - INTERVAL '2 days',
@@ -179,6 +239,7 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
+        '30eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'confirmed',
         8400,
         NOW () - INTERVAL '5 days',
@@ -186,6 +247,7 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05',
+        '40eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'cancelled',
         3200,
         NOW () - INTERVAL '8 days',
@@ -193,6 +255,7 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
+        '40eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'processing',
         6700,
         NOW () - INTERVAL '3 days',
@@ -200,6 +263,7 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
+        '40eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'paid',
         9100,
         NOW () - INTERVAL '4 days',
@@ -207,129 +271,94 @@ VALUES
     ),
     (
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08',
+        '40eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
         'pending',
         2800,
         NOW () - INTERVAL '1 day',
         NOW ()
     );
 
--- Seed order items linking orders to products
+-- Seed dummy order items
 INSERT INTO
-    order_items (order_id, product_id, quantity, purchase_price)
+    order_items (
+        id,
+        order_id,
+        product_id,
+        quantity,
+        purchase_price,
+        created_at,
+        updated_at
+    )
 VALUES
-    -- Order 1: delivered (Clean Code + Design Patterns)
     (
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d01',
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
-        1,
-        3200
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+        2,
+        3850,
+        NOW () - INTERVAL '20 days',
+        NOW () - INTERVAL '15 days'
     ),
     (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
-        1,
-        2800
-    ),
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
-        1,
-        2800
-    ),
-    -- Order 2: shipped (The Go Programming Language)
-    (
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d02',
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b02',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
         1,
-        4500
+        4500,
+        NOW () - INTERVAL '10 days',
+        NOW () - INTERVAL '2 days'
     ),
-    -- Order 3: pending (Multiple items)
     (
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d03',
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
         1,
-        4500
+        9700,
+        NOW () - INTERVAL '2 days',
+        NOW ()
     ),
     (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04',
-        1,
-        3900
-    ),
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b03',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05',
-        1,
-        5200
-    ),
-    -- Order 4: confirmed (PostgreSQL + Clean Code)
-    (
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d04',
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04',
         1,
-        3900
+        8400,
+        NOW () - INTERVAL '5 days',
+        NOW () - INTERVAL '1 day'
     ),
     (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
-        1,
-        3200
-    ),
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b04',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
-        1,
-        3200
-    ),
-    -- Order 5: cancelled (Clean Code)
-    (
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d05',
         'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b05',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+        1,
+        3200,
+        NOW () - INTERVAL '8 days',
+        NOW () - INTERVAL '7 days'
+    ),
+    (
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d06',
+        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
         1,
-        3200
-    ),
-    -- Order 6: processing (Kubernetes + Design Patterns)
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06',
-        1,
-        4800
+        6700,
+        NOW () - INTERVAL '3 days',
+        NOW ()
     ),
     (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d07',
+        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
         1,
-        2800
+        9100,
+        NOW () - INTERVAL '4 days',
+        NOW () - INTERVAL '3 days'
     ),
     (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b06',
+        'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380d08',
+        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08',
         'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04',
         1,
-        3900
-    ),
-    -- Order 7: paid (Domain-Driven Design + System Design)
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07',
-        1,
-        4200
-    ),
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08',
-        1,
-        3500
-    ),
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b07',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07',
-        1,
-        4200
-    ),
-    -- Order 8: pending (Design Patterns)
-    (
-        'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b08',
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
-        1,
-        2800
+        2800,
+        NOW () - INTERVAL '1 day',
+        NOW ()
     );

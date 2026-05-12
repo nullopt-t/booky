@@ -12,6 +12,7 @@ CREATE TYPE order_status AS ENUM (
 CREATE TABLE
     orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        user_id UUID NOT NULL REFERENCES users (id),
         status order_status NOT NULL DEFAULT 'pending',
         total_price INT NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now (),
