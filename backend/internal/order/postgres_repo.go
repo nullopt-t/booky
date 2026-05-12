@@ -1,40 +1,27 @@
 package order
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/shared"
 	"booky-backend/internal/trans"
 	"context"
 	"errors"
 
 	"github.com/jackc/pgx/v5"
-)
-
-var (
-	ErrInDatabase            = errors.New("database error")
-	ErrNoItems               = errors.New("no items in order")
-	ErrInsufficientQuanity   = errors.New("insufficient quantity")
-	ErrInvalidQuantity       = errors.New("invalid quantity")
-	ErrProductNotFound       = errors.New("product not found")
-	ErrInvalidProductID      = errors.New("invalid product ID")
-	ErrOrderNotFound         = errors.New("order not found")
-	ErrOrderNotPending       = errors.New("order is not pending")
-	ErrOrderAlreadyCancelled = errors.New("order already cancelled")
-	ErrOrderAlreadyConfirmed = errors.New("order already confirmed")
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PostgresRepo struct {
-	db *db.DB
+	db *pgxpool.Pool
 }
 
-func NewPostgresRepo(db *db.DB) *PostgresRepo {
+func NewPostgresRepo(db *pgxpool.Pool) OrderRepository {
 	return &PostgresRepo{
-		db,
+		db: db,
 	}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*Order, error) {
-	tx, err := r.db.GetPool().Begin(ctx)
+func (r *PostgresRepo) Create(ctx context.Context, order *CreateOrderRequest) (*Order, error) {
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		shared.Log(shared.DEBUG, "failed to begin transaction: %v", err.Error())
 		return nil, ErrInDatabase
@@ -55,7 +42,7 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*O
 	var totalPrice int
 	for _, item := range order.Items {
 		var stock, price int
-		err := tx.QueryRow(ctx, "SELECT stock, price FROM products WHERE id = $1 FOR UPDATE", item.ProductID).Scan(&stock, &price)
+		err := tx.QueryRow(ctx, "SELECT stock, price FROM products WHERE id = $1 FOR UPDATE", item.ItemID).Scan(&stock, &price)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				shared.Log(shared.DEBUG, "failed to get product stock and price: %v", err.Error())
@@ -65,24 +52,24 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*O
 			return nil, ErrInDatabase
 		}
 		if stock < item.Quantity {
-			shared.Log(shared.DEBUG, "insufficient quanity of product %v", item.ProductID)
+			shared.Log(shared.DEBUG, "insufficient quanity of product %v", item.ItemID)
 			return nil, ErrInsufficientQuanity
 		}
 
-		_, err = tx.Exec(ctx, "UPDATE products SET stock = stock - $1 WHERE id = $2", item.Quantity, item.ProductID)
+		_, err = tx.Exec(ctx, "UPDATE products SET stock = stock - $1 WHERE id = $2", item.Quantity, item.ItemID)
 		if err != nil {
 			shared.Log(shared.DEBUG, "failed to update product stock: %v", err.Error())
 			return nil, ErrInDatabase
 		}
 
-		_, err = tx.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity, purchase_price) VALUES ($1, $2, $3, $4)`, orderID, item.ProductID, item.Quantity, price)
+		_, err = tx.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity, purchase_price) VALUES ($1, $2, $3, $4)`, orderID, item.ItemID, item.Quantity, price)
 		if err != nil {
 			shared.Log(shared.DEBUG, "failed to insert order item: %v", err.Error())
 			return nil, ErrInDatabase
 		}
 
 		createdOrder.Items = append(createdOrder.Items, OrderItem{
-			ProductID:     item.ProductID,
+			ItemID:        item.ItemID,
 			Quantity:      item.Quantity,
 			PurchasePrice: price,
 		})
@@ -104,105 +91,9 @@ func (r *PostgresRepo) Create(ctx context.Context, order CreateOrderRequest) (*O
 	return &createdOrder, nil
 }
 
-func (r *PostgresRepo) Cancel(ctx context.Context, orderID string) error {
-	tx, err := r.db.GetPool().Begin(ctx)
-	if err != nil {
-		shared.Log(shared.DEBUG, "failed to begin transaction: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	defer tx.Rollback(ctx)
-
-	var status OrderStatus
-	err = tx.QueryRow(ctx, "SELECT status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrOrderNotFound
-		}
-		shared.Log(shared.DEBUG, "failed to get order status: %v", err.Error())
-		return ErrInDatabase
-	}
-	if status == OrderStatusCancelled {
-		shared.Log(shared.DEBUG, "order is already cancelled")
-		return ErrOrderAlreadyCancelled
-	}
-
-	if status != OrderStatusPending {
-		shared.Log(shared.DEBUG, "order is not pending")
-		return ErrOrderNotPending
-	}
-
-	_, err = tx.Exec(ctx, "UPDATE products SET stock = stock + (SELECT quantity FROM order_items WHERE order_id = $1 AND product_id = products.id) WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1)", orderID)
-	if err != nil {
-		shared.Log(shared.DEBUG, "failed to revert order items: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	_, err = tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", OrderStatusCancelled, orderID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrOrderNotFound
-		}
-		shared.Log(shared.DEBUG, "failed to cancel order: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		shared.Log(shared.DEBUG, "failed to commit transaction: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	return nil
-}
-
-func (r *PostgresRepo) Confirm(ctx context.Context, orderID string) error {
-	tx, err := r.db.GetPool().Begin(ctx)
-	if err != nil {
-		shared.Log(shared.DEBUG, "failed to begin transaction: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	defer tx.Rollback(ctx)
-
-	var status OrderStatus
-	err = tx.QueryRow(ctx, "SELECT status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrOrderNotFound
-		}
-		shared.Log(shared.DEBUG, "failed to get order status: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	if status == OrderStatusConfirmed {
-		shared.Log(shared.DEBUG, "order is already confirmed")
-		return ErrOrderAlreadyConfirmed
-	}
-
-	if status != OrderStatusPending {
-		return ErrOrderNotPending
-	}
-
-	_, err = tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", OrderStatusConfirmed, orderID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrOrderNotFound
-		}
-		shared.Log(shared.DEBUG, "failed to confirm order: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		shared.Log(shared.DEBUG, "failed to commit transaction: %v", err.Error())
-		return ErrInDatabase
-	}
-
-	return nil
-}
-
 func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*Order, error) {
 	var order Order
-	err := r.db.GetPool().QueryRow(ctx, `
+	err := r.db.QueryRow(ctx, `
     SELECT
       o.id,
       o.status,
@@ -221,7 +112,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*Order, error) {
 	}
 
 	var items = make([]OrderItem, 0)
-	rows, err := r.db.GetPool().Query(ctx, "SELECT order_id, quantity, purchase_price FROM order_items WHERE order_id = $1 ORDER BY created_at DESC", id)
+	rows, err := r.db.Query(ctx, "SELECT order_id, quantity, purchase_price FROM order_items WHERE order_id = $1 ORDER BY created_at DESC", id)
 	if err != nil {
 		shared.Log(shared.DEBUG, "failed to get order items: %v", err.Error())
 		return nil, ErrInDatabase
@@ -229,7 +120,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*Order, error) {
 
 	for rows.Next() {
 		var item OrderItem
-		if err := rows.Scan(&item.ProductID, &item.Quantity, &item.PurchasePrice); err != nil {
+		if err := rows.Scan(&item.ItemID, &item.Quantity, &item.PurchasePrice); err != nil {
 			shared.Log(shared.DEBUG, "failed to scan order item: %v", err.Error())
 			return nil, ErrInDatabase
 		}
@@ -245,7 +136,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id string) (*Order, error) {
 	return &order, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, q trans.PaginationQuery) ([]Order, *trans.Page, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*Order, *trans.Page, error) {
 	// build base query with pagination
 	sql := `
     SELECT
@@ -263,7 +154,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q trans.PaginationQuery) ([]O
     LIMIT $1 OFFSET $2
     `
 
-	rows, err := r.db.GetPool().Query(ctx, sql, q.Limit, (q.Page-1)*q.Limit)
+	rows, err := r.db.Query(ctx, sql, q.Limit, (q.Page-1)*q.Limit)
 	if err != nil {
 		shared.Log(shared.DEBUG, "failed to get all orders: %v", err.Error())
 		return nil, nil, ErrInDatabase
@@ -280,7 +171,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q trans.PaginationQuery) ([]O
 			&order.Status,
 			&order.TotalPrice,
 			&order.CreatedAt,
-			&item.ProductID,
+			&item.ItemID,
 			&item.Quantity,
 			&item.PurchasePrice,
 		); err != nil {
@@ -309,14 +200,14 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q trans.PaginationQuery) ([]O
 	}
 
 	// convert map to slice preserving order of created_at DESC
-	results := make([]Order, 0, len(ordersMap))
+	results := make([]*Order, 0, len(ordersMap))
 	for _, o := range ordersMap {
-		results = append(results, *o)
+		results = append(results, o)
 	}
 
 	// query the orders count
 	var count int
-	err = r.db.GetPool().QueryRow(ctx, "SELECT COUNT(*) FROM orders").Scan(&count)
+	err = r.db.QueryRow(ctx, "SELECT COUNT(*) FROM orders").Scan(&count)
 	if err != nil {
 		return nil, nil, ErrInDatabase
 	}
@@ -328,4 +219,91 @@ func (r *PostgresRepo) GetAll(ctx context.Context, q trans.PaginationQuery) ([]O
 	}
 
 	return results, resultPage, nil
+}
+
+func (r *PostgresRepo) TransitionStatus(
+	ctx context.Context,
+	orderID string,
+	from,
+	to OrderStatus,
+) error {
+
+	var currentStatus OrderStatus
+
+	err := r.db.QueryRow(ctx, `
+        SELECT status
+        FROM orders
+        WHERE id = $1
+    `, orderID).Scan(&currentStatus)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrOrderNotFound
+		}
+
+		return ErrInDatabase
+	}
+
+	// already in target state = idempotent success
+	if currentStatus == to {
+		return nil
+	}
+
+	// invalid transition
+	if currentStatus != from {
+		return ErrInvalidOrderTransition
+	}
+
+	_, err = r.db.Exec(ctx, `
+        UPDATE orders
+        SET status = $1
+        WHERE id = $2
+    `, to, orderID)
+
+	if err != nil {
+		return ErrInDatabase
+	}
+
+	return nil
+}
+
+func (r *PostgresRepo) LockForUpdate(ctx context.Context, orderID string) (*Order, error) {
+	var order Order
+
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			id,
+			status,
+			total_price,
+			created_at
+		FROM orders
+		WHERE id = $1 FOR UPDATE
+	`, orderID).Scan(
+		&order.ID,
+		&order.Status,
+		&order.TotalPrice,
+		&order.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrOrderNotFound
+		}
+		shared.Log(shared.DEBUG, "failed to lock order for update: %v", err.Error())
+		return nil, ErrInDatabase
+	}
+
+	return &order, nil
+}
+
+func (r *PostgresRepo) UpdateTotalPrice(ctx context.Context, orderID string, total int) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE orders
+		SET total_price = $1
+		WHERE id = $2
+	`, total, orderID)
+	if err != nil {
+		return ErrInDatabase
+	}
+
+	return nil
 }

@@ -4,10 +4,8 @@ import (
 	"time"
 )
 
-
-
 type OrderItemResponse struct {
-	ProductID     string `json:"product_id"`
+	ItemID        string `json:"item_id"`
 	Quantity      int    `json:"quantity"`
 	PurchasePrice int    `json:"purchase_price"`
 }
@@ -22,8 +20,8 @@ type OrderResponse struct {
 }
 
 type CreateOrderItemRequest struct {
-	ProductID     string `json:"product_id" binding:"required,uuid"`
-	Quantity      int    `json:"quantity" binding:"required,min=1,max=100"`
+	ItemID   string `json:"item_id" binding:"required,uuid"`
+	Quantity int    `json:"quantity" binding:"required,min=1,max=100"`
 }
 
 type CreateOrderRequest struct {

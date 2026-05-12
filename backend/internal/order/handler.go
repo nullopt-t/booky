@@ -8,14 +8,14 @@ import (
 )
 
 type Hanlder struct {
-	service *Service
+	service OrderService
 }
 
-func NewHandler(s *Service) *Hanlder {
+func NewHandler(s OrderService) OrderHandler {
 	return &Hanlder{service: s}
 }
 
-func (h *Hanlder) handleCreateOrder(c *gin.Context) {
+func (h *Hanlder) CreateOrder(c *gin.Context) {
 	var order CreateOrderRequest
 	if err := c.ShouldBindJSON(&order); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
@@ -25,7 +25,7 @@ func (h *Hanlder) handleCreateOrder(c *gin.Context) {
 		return
 	}
 
-	createdOrder, err := h.service.Create(c.Request.Context(), order)
+	createdOrder, err := h.service.Create(c.Request.Context(), &order)
 	if err != nil {
 		switch err {
 		case ErrInvalidProductID:
@@ -67,7 +67,7 @@ func (h *Hanlder) handleCreateOrder(c *gin.Context) {
 	var items = make([]OrderItemResponse, 0, len(createdOrder.Items))
 	for _, item := range createdOrder.Items {
 		items = append(items, OrderItemResponse{
-			ProductID:     item.ProductID,
+			ItemID:        item.ItemID,
 			Quantity:      item.Quantity,
 			PurchasePrice: item.PurchasePrice,
 		})
@@ -82,7 +82,7 @@ func (h *Hanlder) handleCreateOrder(c *gin.Context) {
 	}})
 }
 
-func (h *Hanlder) handleCancelOrder(c *gin.Context) {
+func (h *Hanlder) CancelOrder(c *gin.Context) {
 	params := struct {
 		OrderID string `uri:"id" binding:"required,uuid"`
 	}{}
@@ -117,7 +117,7 @@ func (h *Hanlder) handleCancelOrder(c *gin.Context) {
 
 }
 
-func (h *Hanlder) handleConfirmOrder(c *gin.Context) {
+func (h *Hanlder) ConfirmOrder(c *gin.Context) {
 	params := struct {
 		OrderID string `uri:"id" binding:"required,uuid"`
 	}{}
@@ -152,7 +152,7 @@ func (h *Hanlder) handleConfirmOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "order confirmed"})
 }
 
-func (h *Hanlder) handleGetOrder(c *gin.Context) {
+func (h *Hanlder) GetOrderByID(c *gin.Context) {
 	params := struct {
 		OrderID string `uri:"id" binding:"required,uuid"`
 	}{}
@@ -177,7 +177,7 @@ func (h *Hanlder) handleGetOrder(c *gin.Context) {
 	var items []OrderItemResponse
 	for _, item := range order.Items {
 		items = append(items, OrderItemResponse{
-			ProductID:     item.ProductID,
+			ItemID:        item.ItemID,
 			Quantity:      item.Quantity,
 			PurchasePrice: item.PurchasePrice,
 		})
@@ -193,7 +193,7 @@ func (h *Hanlder) handleGetOrder(c *gin.Context) {
 	}})
 }
 
-func (h *Hanlder) handleGetOrders(c *gin.Context) {
+func (h *Hanlder) GetAllOrders(c *gin.Context) {
 	var query trans.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
@@ -211,7 +211,7 @@ func (h *Hanlder) handleGetOrders(c *gin.Context) {
 		query.Page = 1
 	}
 
-	orders, page, err := h.service.GetAll(c.Request.Context(), query)
+	orders, page, err := h.service.GetAll(c.Request.Context(), &query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
 			Code:    "internal_error",
@@ -228,12 +228,4 @@ func (h *Hanlder) handleGetOrders(c *gin.Context) {
 			"total": page.Total,
 		},
 	})
-}
-
-func (h *Hanlder) RegisterRoutes(router *gin.Engine) {
-	router.POST("/orders", h.handleCreateOrder)
-	router.POST("/orders/:id/cancel", h.handleCancelOrder)
-	router.POST("/orders/:id/confirm", h.handleConfirmOrder)
-	router.GET("/orders/:id", h.handleGetOrder)
-	router.GET("/orders", h.handleGetOrders)
 }
