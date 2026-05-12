@@ -1,12 +1,13 @@
 package app
 
 import (
+	"booky-backend/internal/cart"
+	// "booky-backend/internal/checkout"
 	"booky-backend/internal/config"
 	"booky-backend/internal/db"
 	"booky-backend/internal/order"
-	"booky-backend/internal/payment"
-	"booky-backend/internal/product"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 
 type application interface {
 	Run() error
-	Close()
+	Shutdown()
 }
 
 type App struct {
@@ -27,43 +28,30 @@ type App struct {
 }
 
 func (app *App) initHandlers(router *gin.Engine) *gin.Engine {
-	repo := product.NewPostgresRepo(app.db)
-	service := product.NewService(repo)
-	handler := product.NewHandler(service)
-	handler.RegisterRoutes(router)
+	apiV1 := router.Group("/api/v1")
 
-	orepo := order.NewPostgresRepo(app.db)
-	oservice := order.NewService(orepo)
-	ohandler := order.NewHandler(oservice)
-	ohandler.RegisterRoutes(router)
+	txRunner := db.NewTxRunner(app.db)
 
-	prepo := payment.NewPostgresRepo(app.db)
-	pservice := payment.NewService(prepo, orepo)
-	phandler := payment.NewHandler(pservice)
-	phandler.RegisterRoutes(router)
+	// cart
+	cartRepo := cart.NewPostgresRepository()
+	cartService := cart.NewService(cartRepo, txRunner)
+	cartHandler := cart.NewHandler(cartService)
+	cart.RegisterRoutes(apiV1.Group("/cart"), cartHandler)
+
+	// orders
+	orderRepo := order.NewPostgresRepo()
+	orderService := order.NewService(txRunner, orderRepo)
+	orderHandler := order.NewHandler(orderService)
+	order.RegisterRoutes(apiV1.Group("/orders"), orderHandler)
+
+	// // checkout
+	// checkoutService := checkout.NewService(app.db.GetPool(), orderRepo, cartRepo)
+	// checkoutHandler := checkout.NewHandler(checkoutService)
+	// checkout.RegisterRoutes(checkoutHandler, apiV1.Group("/checkout"), app.db.GetPool())
 	return router
 }
 
-func (app *App) Run() error {
-	cfg := config.Load()
-	db := db.NewDatabase(cfg.DBCfg)
-	err := db.Connect(context.Background())
-	if err != nil {
-		return err
-	}
-	app.db = db
-
-	router := app.initHandlers(gin.Default())
-
-	app.server = &http.Server{
-		Addr:    cfg.SvPort,
-		Handler: router,
-	}
-
-	return app.server.ListenAndServe()
-}
-
-func (app *App) Close() {
+func (app *App) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -74,4 +62,25 @@ func (app *App) Close() {
 	if app.db != nil {
 		app.db.Close()
 	}
+
+	fmt.Println("Graceful Shutdown")
+}
+
+func (app *App) Run() error {
+	cfg := config.Load()
+
+	var err error
+	app.db, err = db.ConnectDB(context.Background(), cfg)
+	if err != nil {
+		return err
+	}
+
+	router := app.initHandlers(gin.Default())
+
+	app.server = &http.Server{
+		Addr:    fmt.Sprintf(":%s", cfg.SvPort),
+		Handler: router,
+	}
+
+	return app.server.ListenAndServe()
 }

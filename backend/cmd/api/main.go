@@ -1,11 +1,33 @@
 package main
 
-import "booky-backend/internal/app"
+import (
+	"booky-backend/internal/app"
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+)
 
 func main() {
 	app := &app.App{}
-	if err := app.Run(); err != nil {
-		panic(err)
-	}
-	defer app.Close()
+
+	go func() {
+		if err := app.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
+
+	<-ctx.Done()
+
+	app.Shutdown()
 }
