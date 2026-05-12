@@ -1,3 +1,49 @@
+-- Seed static users
+INSERT INTO
+    users (id, email, created_at, updated_at)
+VALUES
+    (
+        '20eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
+        'admin@booky.com',
+        NOW (),
+        NOW ()
+    ),
+    (
+        '30eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
+        'user1@booky.com',
+        NOW (),
+        NOW ()
+    ),
+    (
+        '40eebc99-9c0b-4ef8-bb6d-6bb9bd380b01',
+        'user2@booky.com',
+        NOW (),
+        NOW ()
+    );
+
+-- Seed dummy carts
+INSERT INTO
+    carts (id, user_id, created_at, updated_at)
+VALUES
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01',
+        '20eebc99-9c0b-4ef8-bb6d-6bb9bd380b01', -- admin
+        NOW (),
+        NOW ()
+    ),
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02',
+        '30eebc99-9c0b-4ef8-bb6d-6bb9bd380b01', -- user1
+        NOW (),
+        NOW ()
+    ),
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c03',
+        '40eebc99-9c0b-4ef8-bb6d-6bb9bd380b01', -- user2
+        NOW (),
+        NOW ()
+    );
+
 -- Seed dummy products
 INSERT INTO
     products (id, title, price, stock, created_at, updated_at)
@@ -64,6 +110,45 @@ VALUES
         3500,
         50,
         NOW () - INTERVAL '1 day',
+        NOW ()
+    );
+
+-- Seed dummy cart items
+INSERT INTO
+    cart_items (
+        cart_id,
+        product_id,
+        quantity,
+        created_at,
+        updated_at
+    )
+VALUES
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01',
+        1,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02',
+        1,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03',
+        1,
+        NOW (),
+        NOW ()
+    ),
+    (
+        'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c03',
+        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04',
+        1,
+        NOW (),
         NOW ()
     );
 
