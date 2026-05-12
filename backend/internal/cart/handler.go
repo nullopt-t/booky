@@ -64,9 +64,9 @@ func (h *Handler) AddItem(c *gin.Context) {
 	}})
 }
 
-func (h *Handler) Empty(c *gin.Context) {
+func (h *Handler) EmptyCart(c *gin.Context) {
 	userId := "will get it from the session"
-	err := h.service.Empty(c.Request.Context(), userId)
+	err := h.service.EmptyCart(c.Request.Context(), userId)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return

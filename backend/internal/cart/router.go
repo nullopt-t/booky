@@ -10,7 +10,7 @@ func RegisterRoutes(r *gin.RouterGroup, db *pgxpool.Pool) {
 	service := NewService(repo)
 	handler := NewHandler(service)
 
-	r.GET("/cart", handler.GetCart)
-	r.POST("/cart/items", handler.AddItem)
-	r.DELETE("/cart", handler.Empty)
+	r.GET("/", handler.GetCart)
+	r.POST("/items", handler.AddItem)
+	r.DELETE("/", handler.EmptyCart)
 }

@@ -17,11 +17,11 @@ type CartService interface {
 	GetCart(ctx context.Context, userID string) (*Cart, error)
 	AddItem(ctx context.Context, userID string, req AddCartItemRequest) (*Cart, error)
 	// RemoveItem(ctx context.Context, userID string, itemID string) (*Cart, error)
-	Empty(ctx context.Context, userID string) error
+	EmptyCart(ctx context.Context, userID string) error
 }
 
 type CartHandler interface {
 	GetCart(c *gin.Context)
 	AddItem(c *gin.Context)
-	Empty(c *gin.Context)
+	EmptyCart(c *gin.Context)
 }

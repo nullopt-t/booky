@@ -65,6 +65,6 @@ func (s *Service) AddItem(ctx context.Context, userID string, req AddCartItemReq
 	return cart, nil
 }
 
-func (s *Service) Empty(ctx context.Context, userID string) error {
+func (s *Service) EmptyCart(ctx context.Context, userID string) error {
 	return s.repo.Empty(ctx, userID)
 }
