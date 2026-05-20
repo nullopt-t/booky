@@ -5,17 +5,18 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
-	service *Service
+	service ProudctService
 }
 
-func NewHandler(s *Service) *Handler {
-	return &Handler{service: s}
+func NewHandler(s ProudctService) ProductHandler {
+	return &Handler{s}
 }
 
-func (h *Handler) handleGetProducts(c *gin.Context) {
+func (h *Handler) GetAllProducts(c *gin.Context) {
 	var query trans.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest,
@@ -54,7 +55,6 @@ func (h *Handler) handleGetProducts(c *gin.Context) {
 			ID:        p.ID,
 			Title:     p.Title,
 			Price:     p.Price,
-			Stock:     p.Stock,
 			CreatedAt: p.CreatedAt,
 			UpdatedAt: p.UpdatedAt,
 		})
@@ -68,9 +68,9 @@ func (h *Handler) handleGetProducts(c *gin.Context) {
 	})
 }
 
-func (h *Handler) handleGetProductByID(c *gin.Context) {
+func (h *Handler) GetProductByID(c *gin.Context) {
 	var params = struct {
-		ID string `uri:"id" binding:"required"`
+		ID string `uri:"id" binding:"required,uuid"`
 	}{}
 
 	if err := c.ShouldBindUri(&params); err != nil {
@@ -84,7 +84,19 @@ func (h *Handler) handleGetProductByID(c *gin.Context) {
 		return
 	}
 
-	p, err := h.service.GetByID(c.Request.Context(), params.ID)
+	productID, err := uuid.Parse(params.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest,
+			gin.H{
+				"error": trans.ErrorResponse{
+					Code:    "invalid_request",
+					Message: err.Error(),
+				},
+			})
+		return
+	}
+
+	p, err := h.service.GetByID(c.Request.Context(), productID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
@@ -100,13 +112,12 @@ func (h *Handler) handleGetProductByID(c *gin.Context) {
 		ID:        p.ID,
 		Title:     p.Title,
 		Price:     p.Price,
-		Stock:     p.Stock,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	})
 }
 
-func (h *Handler) handlerCreateProduct(c *gin.Context) {
+func (h *Handler) CreateProduct(c *gin.Context) {
 	var p CreateProductRequest
 	if err := c.ShouldBindJSON(&p); err != nil {
 		c.JSON(http.StatusInternalServerError,
@@ -135,65 +146,7 @@ func (h *Handler) handlerCreateProduct(c *gin.Context) {
 		ID:        newProduct.ID,
 		Title:     newProduct.Title,
 		Price:     newProduct.Price,
-		Stock:     newProduct.Stock,
 		CreatedAt: newProduct.CreatedAt,
 		UpdatedAt: newProduct.UpdatedAt,
 	})
-}
-
-func (h *Handler) handlerUpdateProduct(c *gin.Context) {
-	var params = struct {
-		ID string `uri:"id" binding:"required"`
-	}{}
-
-	if err := c.ShouldBindUri(&params); err != nil {
-		c.JSON(http.StatusBadRequest,
-			gin.H{
-				"error": trans.ErrorResponse{
-					Code:    "invalid_request",
-					Message: err.Error(),
-				},
-			})
-		return
-	}
-
-	var p UpdateProductRequest
-	if err := c.ShouldBindJSON(&p); err != nil {
-		c.JSON(http.StatusInternalServerError,
-			gin.H{
-				"error": trans.ErrorResponse{
-					Code:    "invalid_request",
-					Message: err.Error(),
-				},
-			})
-		return
-	}
-
-	updatedProduct, err := h.service.Update(c.Request.Context(), params.ID, p)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError,
-			gin.H{
-				"error": trans.ErrorResponse{
-					Code:    "internal_error",
-					Message: "unexpected behaviour",
-				},
-			})
-		return
-	}
-
-	c.JSON(http.StatusOK, &ProductResponse{
-		ID:        updatedProduct.ID,
-		Title:     updatedProduct.Title,
-		Price:     updatedProduct.Price,
-		Stock:     updatedProduct.Stock,
-		CreatedAt: updatedProduct.CreatedAt,
-		UpdatedAt: updatedProduct.UpdatedAt,
-	})
-}
-
-func (h *Handler) RegisterRoutes(router *gin.Engine) {
-	router.GET("/products", h.handleGetProducts)
-	router.GET("/products/:id", h.handleGetProductByID)
-	router.POST("/products", h.handlerCreateProduct)
-	router.PATCH("/products/:id", h.handlerUpdateProduct)
 }

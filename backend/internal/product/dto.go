@@ -2,10 +2,12 @@ package product
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type ProductResponse struct {
-	ID        string    `json:"id"`
+	ID        uuid.UUID `json:"id"`
 	Title     string    `json:"title"`
 	Price     int       `json:"price"`
 	Stock     int       `json:"stock"`
@@ -23,11 +25,9 @@ type ProductsResponse struct {
 type CreateProductRequest struct {
 	Title string `json:"title" binding:"required"`
 	Price int    `json:"price" binding:"required"`
-	Stock int    `json:"stock" binding:"required"`
 }
 
 type UpdateProductRequest struct {
 	Title *string `json:"title,omitempty"`
 	Price *int    `json:"price,omitempty"`
-	Stock *int    `json:"stock,omitempty"`
 }
