@@ -24,6 +24,6 @@ func Load() *Config {
 			DBPassword: utils.GetEnvOrDefault("DB_PASSWORD", "bookshop123"),
 			DBName:     utils.GetEnvOrDefault("DB_NAME", "bookshop"),
 		},
-		SvPort: utils.GetEnvOrDefault("PORT", ":8080"),
+		SvPort: utils.GetEnvOrDefault("PORT", "8080"),
 	}
 }

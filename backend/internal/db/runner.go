@@ -4,6 +4,11 @@ import (
 	"context"
 )
 
+type Runner interface {
+	WithTx(ctx context.Context, fn func(tx DBQE) error) error
+	DB() DBQE
+}
+
 type TxRunner struct {
 	db *DB
 }
