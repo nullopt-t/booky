@@ -22,7 +22,7 @@ func NewHandler(s *Service) *Handler {
 func (h *Handler) handleCreatePayment(c *gin.Context) {
 	var req CreatePaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ApiErr{
 			Code:    "invalid_request",
 			Message: err.Error(),
 		}})
@@ -33,22 +33,22 @@ func (h *Handler) handleCreatePayment(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case ErrOrderDoesNotExist:
-			c.JSON(http.StatusNotFound, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusNotFound, gin.H{"error": trans.ApiErr{
 				Code:    "order_not_found",
 				Message: err.Error(),
 			}})
 		case ErrOrderIsNotPending:
-			c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusBadRequest, gin.H{"error": trans.ApiErr{
 				Code:    "order_not_pending",
 				Message: err.Error(),
 			}})
 		case ErrInDatabase:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
 				Code:    "internal_error",
 				Message: err.Error(),
 			}})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
 				Code:    "internal_error",
 				Message: err.Error(),
 			}})
@@ -65,7 +65,7 @@ func (h *Handler) handleGetByID(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindUri(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ErrorResponse{
+		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ApiErr{
 			Code:    "invalid_request",
 			Message: err.Error(),
 		}})
@@ -76,17 +76,17 @@ func (h *Handler) handleGetByID(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case ErrPaymentNotFound:
-			c.JSON(http.StatusNotFound, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusNotFound, gin.H{"error": trans.ApiErr{
 				Code:    "payment_not_found",
 				Message: err.Error(),
 			}})
 		case ErrInDatabase:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
 				Code:    "internal_error",
 				Message: err.Error(),
 			}})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ErrorResponse{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
 				Code:    "internal_error",
 				Message: err.Error(),
 			}})

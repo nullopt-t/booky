@@ -21,7 +21,7 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -41,7 +41,7 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -76,7 +76,7 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -88,7 +88,7 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -100,7 +100,7 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -122,7 +122,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&p); err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -134,7 +134,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ErrorResponse{
+				"error": trans.ApiErr{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},

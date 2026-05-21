@@ -10,12 +10,12 @@ import (
 )
 
 type Service struct {
-	tx            *db.TxRunner
+	tx            db.Runner
 	productRepo   ProductRepository
 	inventoryRepo InventoryRepository
 }
 
-func NewService(tx *db.TxRunner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
+func NewService(tx db.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
 	return &Service{tx, productRepo, inventoryRepo}
 }
 

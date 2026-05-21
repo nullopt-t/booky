@@ -4,21 +4,26 @@ import (
 	"context"
 
 	"booky-backend/internal/db"
+	"booky-backend/internal/model"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+type ProductRepository interface {
+	GetByID(ctx context.Context, db db.DBQE, productID uuid.UUID) (*model.Product, error)
+}
+
 type CartRepository interface {
-	Create(ctx context.Context, db db.DBQE, userID uuid.UUID) (*Cart, error)
-	GetByUserID(ctx context.Context, db db.DBQE, userID uuid.UUID) (*Cart, error)
+	Create(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
+	GetByUserID(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
 	Empty(ctx context.Context, db db.DBQE, userID uuid.UUID) error
-	Save(ctx context.Context, db db.DBQE, cart *Cart) error
+	Save(ctx context.Context, db db.DBQE, cart *model.Cart) error
 }
 
 type CartService interface {
-	GetCart(ctx context.Context, userID uuid.UUID) (*Cart, error)
-	AddItem(ctx context.Context, userID uuid.UUID, req AddCartItemRequest) (*Cart, error)
-	// RemoveItem(ctx context.Context, userID string, itemID string) (*Cart, error)
+	GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, int, error)
+	AddItem(ctx context.Context, userID uuid.UUID, req AddCartItemRequest) (*model.Cart, error)
 	EmptyCart(ctx context.Context, userID uuid.UUID) error
 }
 

@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"booky-backend/internal/order"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -9,14 +8,12 @@ import (
 )
 
 type Service struct {
-	repo      PaymentRepository
-	orderRepo order.OrderRepository
+	repo PaymentRepository
 }
 
-func NewService(repo PaymentRepository, orderRepo order.OrderRepository) *Service {
+func NewService(repo PaymentRepository) *Service {
 	return &Service{
-		repo:      repo,
-		orderRepo: orderRepo,
+		repo: repo,
 	}
 }
 
@@ -50,23 +47,14 @@ func (s *Service) MarkSucceeded(ctx context.Context, provider string, providerRe
 		return err
 	}
 
-	if payment.Status != PaymentStatusPending {
+	if payment.Status != StatusPending {
 		return ErrInvalidPaymentTransition
 	}
 
 	// Update payment status to succeeded
-	err = s.repo.TransitionStatusByProviderRef(ctx, provider, providerRef, PaymentStatusSucceeded)
+	err = s.repo.TransitionStatusByProviderRef(ctx, provider, providerRef, StatusSucceeded)
 	if err != nil {
 		return err
-	}
-
-	// Auto-confirm the order when payment succeeds
-	err = s.orderRepo.Confirm(ctx, payment.OrderID)
-	if err != nil {
-		// Log the error but don't fail the payment operation
-		// The payment succeeded, but order confirmation failed
-		// This should be monitored and retried manually
-		return fmt.Errorf("payment succeeded but order confirmation failed: %w", err)
 	}
 
 	return nil
@@ -78,10 +66,10 @@ func (s *Service) MarkFailed(ctx context.Context, provider string, providerRef s
 		return err
 	}
 
-	if payment.Status != PaymentStatusPending {
+	if payment.Status != StatusPending {
 		return ErrInvalidPaymentTransition
 	}
-	return s.repo.TransitionStatusByProviderRef(ctx, provider, providerRef, PaymentStatusFailed)
+	return s.repo.TransitionStatusByProviderRef(ctx, provider, providerRef, StatusFailed)
 }
 
 func (s *Service) Cancel(ctx context.Context, provider string, providerRef string) error {
@@ -90,8 +78,8 @@ func (s *Service) Cancel(ctx context.Context, provider string, providerRef strin
 		return err
 	}
 
-	if payment.Status != PaymentStatusPending {
+	if payment.Status != StatusPending {
 		return ErrInvalidPaymentTransition
 	}
-	return s.repo.TransitionStatusByProviderRef(ctx, provider, providerRef, PaymentStatusCancelled)
+	return s.repo.TransitionStatusByProviderRef(ctx, provider, providerRef, StatusCancelled)
 }

@@ -2,64 +2,70 @@ package cart
 
 import (
 	"booky-backend/internal/db"
+	"booky-backend/internal/model"
 	"context"
 
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	tx   *db.TxRunner
-	repo CartRepository
+	tx          db.Runner
+	cartRepo    CartRepository
+	productRepo ProductRepository
 }
 
-func NewService(repo CartRepository, tx *db.TxRunner) CartService {
-	return &Service{
-		repo: repo,
-		tx:   tx,
-	}
+func NewService(tx db.Runner, cartRepo CartRepository, productRepo ProductRepository) CartService {
+	return &Service{tx, cartRepo, productRepo}
 }
 
-func (s *Service) getOrCreateCart(ctx context.Context, db db.DBQE, userID uuid.UUID) (*Cart, error) {
-	cart, err := s.repo.GetByUserID(ctx, db, userID)
+func (s *Service) getOrCreateCart(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+	cart, err := s.cartRepo.GetByUserID(ctx, db, userID)
 	if err != nil {
-		if err == ErrCartNotFound {
-			cart, err = s.repo.Create(ctx, db, userID)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+		return s.cartRepo.Create(ctx, db, userID)
 	}
 	return cart, nil
 }
 
-func (s *Service) addOrUpdateItem(ctx context.Context, db db.DBQE, cart *Cart, req AddCartItemRequest) error {
+func (s *Service) addOrUpdateItem(ctx context.Context, db db.DBQE, cart *model.Cart, req AddCartItemRequest) error {
 	found := false
 	for i, item := range cart.Items {
-		if item.ProductID == req.ItemID {
+		if item.ProductID == req.ProductID {
 			cart.Items[i].Quantity += req.Quantity
 			found = true
 			break
 		}
 	}
 	if !found {
-		cart.Items = append(cart.Items, CartItem{
-			ProductID: req.ItemID,
+		cart.Items = append(cart.Items, model.CartItem{
+			ProductID: req.ProductID,
 			Quantity:  req.Quantity,
 		})
 	}
 
-	return s.repo.Save(ctx, db, cart)
+	return s.cartRepo.Save(ctx, db, cart)
 }
 
-func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*Cart, error) {
-	return s.getOrCreateCart(ctx, s.tx.DB(), userID)
+func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, int, error) {
+	var total int
+	cart, err := s.getOrCreateCart(ctx, s.tx.DB(), userID)
+	if err != nil {
+		return nil, total, err
+	}
+
+	for _, item := range cart.Items {
+		product, err := s.productRepo.GetByID(ctx, s.tx.DB(), item.ProductID)
+		if err != nil {
+			return nil, total, err
+		}
+		total += product.Price * item.Quantity
+	}
+
+	return cart, total, nil
 }
 
-func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItemRequest) (*Cart, error) {
+func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItemRequest) (*model.Cart, error) {
 
-	var cart *Cart
+	var cart *model.Cart
 
 	err := s.tx.WithTx(ctx, func(tx db.DBQE) error {
 
@@ -81,6 +87,6 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 
 func (s *Service) EmptyCart(ctx context.Context, userID uuid.UUID) error {
 	return s.tx.WithTx(ctx, func(tx db.DBQE) error {
-		return s.repo.Empty(ctx, tx, userID)
+		return s.cartRepo.Empty(ctx, tx, userID)
 	})
 }

@@ -2,10 +2,6 @@ package payment
 
 import "time"
 
-type PaymentStatus string
-
-
-
 type PaymentResponse struct {
 	ID          string     `json:"id"`
 	OrderID     string     `json:"order_id"`
@@ -19,5 +15,7 @@ type PaymentResponse struct {
 }
 
 type CreatePaymentRequest struct {
-	OrderID string `json:"order_id" binding:"required"`
+	OrderID        string `json:"order_id" binding:"required"`
+	IdempotencyKey string `json:"idempotency_key" binding:"required"`
+	PaymentMethod  string `json:"payment_method,omitempty"`
 }

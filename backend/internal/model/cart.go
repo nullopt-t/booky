@@ -8,7 +8,7 @@ import (
 
 type Cart struct {
 	ID        uuid.UUID  `json:"id"`
-	UserID    string     `json:"user_id"`
+	UserID    uuid.UUID  `json:"user_id"`
 	Items     []CartItem `json:"items"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`

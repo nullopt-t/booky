@@ -4,8 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, handler CartHandler) {
-	r.GET("/", handler.GetCart)
-	r.POST("/items", handler.AddItem)
-	r.DELETE("/", handler.EmptyCart)
+func MapRoutes(r *gin.RouterGroup, handler CartHandler) {
+	rg := r.Group("/carts")
+	rg.GET("", handler.GetCart)
+	rg.POST("/items", handler.AddItem)
+	rg.DELETE("", handler.EmptyCart)
 }

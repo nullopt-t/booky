@@ -2,6 +2,7 @@ package order
 
 import (
 	"booky-backend/internal/db"
+	"booky-backend/internal/model"
 	"booky-backend/internal/shared"
 	"booky-backend/internal/trans"
 	"context"
@@ -14,68 +15,41 @@ import (
 type PostgresRepo struct {
 }
 
-func NewPostgresRepo() OrderRepository {
+func NewPostgresRepository() OrderRepository {
 	return &PostgresRepo{}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, order *CreateOrderRequest) (*Order, error) {
-	var orderID string
-	var createdOrder Order
-	err := db.QueryRow(ctx, `INSERT INTO orders(total_price) VALUES ($1) RETURNING id`, 0).Scan(&orderID)
+func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, order model.Order) (*model.Order, error) {
+	// create order
+	var createdOrder model.Order
+	err := db.QueryRow(ctx, `INSERT INTO orders(total_price) VALUES ($1) RETURNING id, status, total_price, created_at, updated_at`,
+		order.TotalPrice).Scan(&createdOrder.ID, &createdOrder.Status, &createdOrder.TotalPrice, &createdOrder.CreatedAt, &createdOrder.UpdatedAt)
 	if err != nil {
 		shared.Log(shared.DEBUG, "failed to insert new order :%v", err.Error())
 		return nil, ErrInDatabase
 	}
 
-	var totalPrice int
+	// insert the order items
 	for _, item := range order.Items {
-		var stock, price int
-		err := db.QueryRow(ctx, "SELECT stock, price FROM products WHERE id = $1 FOR UPDATE", item.ProductID).Scan(&stock, &price)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				shared.Log(shared.DEBUG, "failed to get product stock and price: %v", err.Error())
-				return nil, ErrProductNotFound
-			}
-			shared.Log(shared.DEBUG, "failed to get product stock and price: %v", err.Error())
-			return nil, ErrInDatabase
-		}
-		if stock < item.Quantity {
-			shared.Log(shared.DEBUG, "insufficient quanity of product %v", item.ProductID)
-			return nil, ErrInsufficientQuanity
-		}
-
-		_, err = db.Exec(ctx, "UPDATE products SET stock = stock - $1 WHERE id = $2", item.Quantity, item.ProductID)
-		if err != nil {
-			shared.Log(shared.DEBUG, "failed to update product stock: %v", err.Error())
-			return nil, ErrInDatabase
-		}
-
-		_, err = db.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity, purchase_price) VALUES ($1, $2, $3, $4)`, orderID, item.ProductID, item.Quantity, price)
+		_, err = db.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity, purchase_price) VALUES ($1, $2, $3, $4)`,
+			createdOrder.ID, item.ProductID, item.Quantity, item.PurchasePrice)
 		if err != nil {
 			shared.Log(shared.DEBUG, "failed to insert order item: %v", err.Error())
 			return nil, ErrInDatabase
 		}
 
-		createdOrder.Items = append(createdOrder.Items, OrderItem{
+		createdOrder.Items = append(createdOrder.Items, model.OrderItem{
 			ProductID:     item.ProductID,
 			Quantity:      item.Quantity,
-			PurchasePrice: price,
+			PurchasePrice: item.PurchasePrice,
 		})
-
-		totalPrice += price * item.Quantity
-	}
-
-	err = db.QueryRow(ctx, "UPDATE orders SET total_price = $1 WHERE id = $2 RETURNING id, status, total_price, created_at, updated_at", totalPrice, orderID).Scan(&createdOrder.ID, &createdOrder.Status, &createdOrder.TotalPrice, &createdOrder.CreatedAt, &createdOrder.UpdatedAt)
-	if err != nil {
-		shared.Log(shared.DEBUG, "failed to update order total price: %v", err.Error())
-		return nil, ErrInDatabase
 	}
 
 	return &createdOrder, nil
 }
 
-func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*Order, error) {
-	var order Order
+func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*model.Order, error) {
+	var order model.Order
 	err := db.QueryRow(ctx, `
     SELECT
       o.id,
@@ -94,7 +68,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUI
 		return nil, ErrInDatabase
 	}
 
-	var items = make([]OrderItem, 0)
+	var items = make([]model.OrderItem, 0)
 	rows, err := db.Query(ctx, "SELECT order_id, quantity, purchase_price FROM order_items WHERE order_id = $1 ORDER BY created_at DESC", orderID)
 	if err != nil {
 		shared.Log(shared.DEBUG, "failed to get order items: %v", err.Error())
@@ -102,7 +76,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUI
 	}
 
 	for rows.Next() {
-		var item OrderItem
+		var item model.OrderItem
 		if err := rows.Scan(&item.ProductID, &item.Quantity, &item.PurchasePrice); err != nil {
 			shared.Log(shared.DEBUG, "failed to scan order item: %v", err.Error())
 			return nil, ErrInDatabase
@@ -119,7 +93,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUI
 	return &order, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*Order, *trans.Page, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
 	// build base query with pagination
 	sql := `
     SELECT
@@ -144,10 +118,10 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 	}
 	defer rows.Close()
 
-	ordersMap := make(map[string]*Order)
+	ordersMap := make(map[uuid.UUID]*model.Order)
 	for rows.Next() {
-		var order Order
-		var item OrderItem
+		var order model.Order
+		var item model.OrderItem
 
 		if err := rows.Scan(
 			&order.ID,
@@ -164,12 +138,12 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 
 		o, ok := ordersMap[order.ID]
 		if !ok {
-			o = &Order{
+			o = &model.Order{
 				ID:         order.ID,
 				Status:     order.Status,
 				TotalPrice: order.TotalPrice,
 				CreatedAt:  order.CreatedAt,
-				Items:      []OrderItem{},
+				Items:      []model.OrderItem{},
 			}
 			ordersMap[order.ID] = o
 		}
@@ -183,7 +157,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 	}
 
 	// convert map to slice preserving order of created_at DESC
-	results := make([]*Order, 0, len(ordersMap))
+	results := make([]*model.Order, 0, len(ordersMap))
 	for _, o := range ordersMap {
 		results = append(results, o)
 	}
@@ -209,10 +183,10 @@ func (r *PostgresRepo) TransitionStatus(
 	db db.DBQE,
 	orderID uuid.UUID,
 	from,
-	to OrderStatus,
+	to model.OrderStatus,
 ) error {
 
-	var currentStatus OrderStatus
+	var currentStatus model.OrderStatus
 
 	err := db.QueryRow(ctx, `
         SELECT status

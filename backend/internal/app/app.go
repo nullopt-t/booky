@@ -2,6 +2,9 @@ package app
 
 import (
 	"booky-backend/internal/cart"
+	"booky-backend/internal/inventory"
+	"booky-backend/internal/product"
+
 	// "booky-backend/internal/checkout"
 	"booky-backend/internal/config"
 	"booky-backend/internal/db"
@@ -27,28 +30,36 @@ type App struct {
 	db *db.DB
 }
 
-func (app *App) initHandlers(router *gin.Engine) *gin.Engine {
-	apiV1 := router.Group("/api/v1")
+func (app *App) initHandlers(router *gin.Engine) {
+	v1 := router.Group("/api/v1")
 
 	txRunner := db.NewTxRunner(app.db)
 
+	// inventory
+	inventoryRepo := inventory.NewPostgresRepository()
+
+	// product
+	productRepo := product.NewPostgresRepository()
+	productService := product.NewService(txRunner, productRepo, inventoryRepo)
+	productHandler := product.NewHandler(productService)
+	product.MapRoutes(v1, productHandler)
+
 	// cart
 	cartRepo := cart.NewPostgresRepository()
-	cartService := cart.NewService(cartRepo, txRunner)
+	cartService := cart.NewService(txRunner, cartRepo, productRepo)
 	cartHandler := cart.NewHandler(cartService)
-	cart.RegisterRoutes(apiV1.Group("/cart"), cartHandler)
+	cart.MapRoutes(v1, cartHandler)
 
-	// orders
-	orderRepo := order.NewPostgresRepo()
+	// order
+	orderRepo := order.NewPostgresRepository()
 	orderService := order.NewService(txRunner, orderRepo)
 	orderHandler := order.NewHandler(orderService)
-	order.RegisterRoutes(apiV1.Group("/orders"), orderHandler)
+	order.MapRoutes(v1, orderHandler)
 
 	// // checkout
 	// checkoutService := checkout.NewService(app.db.GetPool(), orderRepo, cartRepo)
 	// checkoutHandler := checkout.NewHandler(checkoutService)
 	// checkout.RegisterRoutes(checkoutHandler, apiV1.Group("/checkout"), app.db.GetPool())
-	return router
 }
 
 func (app *App) Shutdown() {
@@ -75,7 +86,8 @@ func (app *App) Run() error {
 		return err
 	}
 
-	router := app.initHandlers(gin.Default())
+	router := gin.Default()
+	app.initHandlers(router)
 
 	app.server = &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.SvPort),

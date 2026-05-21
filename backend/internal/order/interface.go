@@ -2,6 +2,7 @@ package order
 
 import (
 	"booky-backend/internal/db"
+	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
 	"context"
 
@@ -10,27 +11,25 @@ import (
 )
 
 type OrderRepository interface {
-	Create(ctx context.Context, db db.DBQE, order *CreateOrderRequest) (*Order, error)
+	Create(ctx context.Context, db db.DBQE, order model.Order) (*model.Order, error)
 
-	GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*Order, error)
+	GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*model.Order, error)
 
-	GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*Order, *trans.Page, error)
+	GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
 
-	TransitionStatus(ctx context.Context, db db.DBQE, orderID uuid.UUID, from, to OrderStatus) error
+	TransitionStatus(ctx context.Context, db db.DBQE, orderID uuid.UUID, from, to model.OrderStatus) error
 
 	UpdateTotalPrice(ctx context.Context, db db.DBQE, orderID uuid.UUID, total int) error
 }
 
 type OrderService interface {
-	Create(ctx context.Context, req *CreateOrderRequest) (*Order, error)
-	GetByID(ctx context.Context, orderID uuid.UUID) (*Order, error)
-	GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*Order, *trans.Page, error)
+	GetByID(ctx context.Context, orderID uuid.UUID) (*model.Order, error)
+	GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
 	Cancel(ctx context.Context, orderID uuid.UUID) error
 	Confirm(ctx context.Context, orderID uuid.UUID) error
 }
 
 type OrderHandler interface {
-	CreateOrder(c *gin.Context)
 	GetOrderByID(c *gin.Context)
 	GetAllOrders(c *gin.Context)
 	CancelOrder(c *gin.Context)
