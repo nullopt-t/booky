@@ -1,7 +1,6 @@
 package trans
 
-type ErrorResponse struct {
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
+type ApiErr struct {
+	Code    ApiErrCode `json:"code,omitempty"`
+	Message string     `json:"message,omitempty"`
 }
-
