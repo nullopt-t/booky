@@ -4,9 +4,9 @@ import "errors"
 
 var (
 	ErrCartNotFound     = errors.New("cart not found")
-	ErrDatabaseFailure  = errors.New("database operation failed")
-	ErrDatabaseTimeout  = errors.New("database timeout")
+	ErrInDB             = errors.New("database operation failed")
 	ErrItemNotFound     = errors.New("item not found")
 	ErrItemNotRemoved   = errors.New("item not removed")
 	ErrCartAlreadyExist = errors.New("cart already exists")
+	ErrProductNotFound  = errors.New("product not found")
 )

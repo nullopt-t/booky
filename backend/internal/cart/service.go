@@ -4,6 +4,7 @@ import (
 	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 )
@@ -18,15 +19,18 @@ func NewService(tx db.Runner, cartRepo CartRepository, productRepo ProductReposi
 	return &Service{tx, cartRepo, productRepo}
 }
 
-func (s *Service) getOrCreateCart(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error) {
-	cart, err := s.cartRepo.GetByUserID(ctx, db, userID)
+func (s *Service) getOrCreateCart(ctx context.Context, qe db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+	cart, err := s.cartRepo.GetByUserID(ctx, qe, userID)
 	if err != nil {
-		return s.cartRepo.Create(ctx, db, userID)
+		if errors.Is(err, db.ErrNotFound) {
+			return s.cartRepo.Create(ctx, qe, userID)
+		}
+		return nil, err
 	}
 	return cart, nil
 }
 
-func (s *Service) addOrUpdateItem(ctx context.Context, db db.DBQE, cart *model.Cart, req AddCartItemRequest) error {
+func (s *Service) addOrUpdateItem(ctx context.Context, qe db.DBQE, cart *model.Cart, req AddCartItemRequest) error {
 	found := false
 	for i, item := range cart.Items {
 		if item.ProductID == req.ProductID {
@@ -42,19 +46,31 @@ func (s *Service) addOrUpdateItem(ctx context.Context, db db.DBQE, cart *model.C
 		})
 	}
 
-	return s.cartRepo.Save(ctx, db, cart)
+	if err := s.cartRepo.Save(ctx, qe, cart); err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return ErrCartNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, int, error) {
 	var total int
 	cart, err := s.getOrCreateCart(ctx, s.tx.DB(), userID)
 	if err != nil {
+		if errors.Is(err, db.ErrConflict) {
+			return nil, total, ErrCartAlreadyExist
+		}
 		return nil, total, err
 	}
 
 	for _, item := range cart.Items {
 		product, err := s.productRepo.GetByID(ctx, s.tx.DB(), item.ProductID)
 		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				return nil, total, ErrProductNotFound
+			}
 			return nil, total, err
 		}
 		total += product.Price * item.Quantity

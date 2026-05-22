@@ -3,7 +3,6 @@ package order
 import (
 	"booky-backend/internal/db"
 	"booky-backend/internal/model"
-	"booky-backend/internal/shared"
 	"booky-backend/internal/trans"
 	"context"
 	"errors"
@@ -25,7 +24,6 @@ func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, order model.Order
 	err := db.QueryRow(ctx, `INSERT INTO orders(total_price) VALUES ($1) RETURNING id, status, total_price, created_at, updated_at`,
 		order.TotalPrice).Scan(&createdOrder.ID, &createdOrder.Status, &createdOrder.TotalPrice, &createdOrder.CreatedAt, &createdOrder.UpdatedAt)
 	if err != nil {
-		shared.Log(shared.DEBUG, "failed to insert new order :%v", err.Error())
 		return nil, ErrInDatabase
 	}
 
@@ -34,7 +32,6 @@ func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, order model.Order
 		_, err = db.Exec(ctx, `INSERT INTO order_items (order_id, product_id, quantity, purchase_price) VALUES ($1, $2, $3, $4)`,
 			createdOrder.ID, item.ProductID, item.Quantity, item.PurchasePrice)
 		if err != nil {
-			shared.Log(shared.DEBUG, "failed to insert order item: %v", err.Error())
 			return nil, ErrInDatabase
 		}
 
@@ -64,28 +61,24 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrOrderNotFound
 		}
-		shared.Log(shared.DEBUG, "failed to get order: %v", err.Error())
 		return nil, ErrInDatabase
 	}
 
 	var items = make([]model.OrderItem, 0)
 	rows, err := db.Query(ctx, "SELECT order_id, quantity, purchase_price FROM order_items WHERE order_id = $1 ORDER BY created_at DESC", orderID)
 	if err != nil {
-		shared.Log(shared.DEBUG, "failed to get order items: %v", err.Error())
 		return nil, ErrInDatabase
 	}
 
 	for rows.Next() {
 		var item model.OrderItem
 		if err := rows.Scan(&item.ProductID, &item.Quantity, &item.PurchasePrice); err != nil {
-			shared.Log(shared.DEBUG, "failed to scan order item: %v", err.Error())
 			return nil, ErrInDatabase
 		}
 		items = append(items, item)
 	}
 	defer rows.Close()
 	if err := rows.Err(); err != nil {
-		shared.Log(shared.DEBUG, "failed to iterate over order items: %v", err.Error())
 		return nil, ErrInDatabase
 	}
 
@@ -113,7 +106,6 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 
 	rows, err := db.Query(ctx, sql, q.Limit, (q.Page-1)*q.Limit)
 	if err != nil {
-		shared.Log(shared.DEBUG, "failed to get all orders: %v", err.Error())
 		return nil, nil, ErrInDatabase
 	}
 	defer rows.Close()
@@ -132,7 +124,6 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 			&item.Quantity,
 			&item.PurchasePrice,
 		); err != nil {
-			shared.Log(shared.DEBUG, "failed to scan order: %v", err.Error())
 			return nil, nil, ErrInDatabase
 		}
 
@@ -152,7 +143,6 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 	}
 
 	if err := rows.Err(); err != nil {
-		shared.Log(shared.DEBUG, "failed to iterate over orders: %v", err.Error())
 		return nil, nil, ErrInDatabase
 	}
 

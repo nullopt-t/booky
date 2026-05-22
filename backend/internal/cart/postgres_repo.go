@@ -4,11 +4,8 @@ import (
 	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type PostgresRepository struct{}
@@ -26,12 +23,7 @@ func (r *PostgresRepository) Create(ctx context.Context, qe db.DBQE, userID uuid
 	).Scan(&cart.ID, &cart.CreatedAt, &cart.UpdatedAt)
 
 	if err != nil {
-		if pgErr, ok := err.(*pgconn.PgError); ok {
-			if pgErr.Code == db.UniqueViolation {
-				return nil, fmt.Errorf("%w : %v", ErrCartAlreadyExist, err)
-			}
-		}
-		return nil, fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return nil, db.MapError(err)
 	}
 
 	return &cart, nil
@@ -45,31 +37,29 @@ func (r *PostgresRepository) GetByUserID(ctx context.Context, qe db.DBQE, userID
 	).Scan(&cart.ID, &cart.UserID, &cart.CreatedAt, &cart.UpdatedAt)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("%w : %v", ErrCartNotFound, err)
-		}
-		return nil, fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return nil, db.MapError(err)
 	}
 
 	rows, err := qe.Query(ctx,
 		`SELECT product_id, quantity FROM cart_items WHERE cart_id=$1`,
 		cart.ID,
 	)
+
 	if err != nil {
-		return nil, fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return nil, db.MapError(err)
 	}
 
 	for rows.Next() {
 		var item model.CartItem
 		err := rows.Scan(&item.ProductID, &item.Quantity)
 		if err != nil {
-			return nil, fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+			return nil, db.MapError(err)
 		}
 		cart.Items = append(cart.Items, item)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return nil, db.MapError(err)
 	}
 
 	return &cart, nil
@@ -85,7 +75,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 	`, cart.ID)
 
 	if err != nil {
-		return fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return db.MapError(err)
 	}
 
 	// 2. Update cart timestamp
@@ -96,7 +86,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 	`, cart.ID)
 
 	if err != nil {
-		return fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return db.MapError(err)
 	}
 
 	// 3. Delete old items (safe because locked)
@@ -106,7 +96,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 	`, cart.ID)
 
 	if err != nil {
-		return fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return db.MapError(err)
 	}
 
 	// 4. Insert fresh snapshot
@@ -121,7 +111,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 		)
 
 		if err != nil {
-			return fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+			return db.MapError(err)
 		}
 	}
 
@@ -134,7 +124,8 @@ func (r *PostgresRepository) Empty(ctx context.Context, qe db.DBQE, userID uuid.
 		userID,
 	)
 	if err != nil {
-		return fmt.Errorf("%w : %v", ErrDatabaseFailure, err)
+		return err
 	}
+
 	return nil
 }

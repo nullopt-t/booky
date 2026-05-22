@@ -107,7 +107,7 @@ func TestGetCart(t *testing.T) {
 		userID := uuid.New()
 		repo := &MockCartRepository{
 			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
-				return nil, fmt.Errorf("not found")
+				return nil, db.ErrNotFound
 			},
 			CreateFn: func(_ context.Context, _ db.DBQE, id uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{UserID: id, Items: []model.CartItem{}}, nil

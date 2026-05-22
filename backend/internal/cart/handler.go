@@ -1,6 +1,7 @@
 package cart
 
 import (
+	"booky-backend/internal/shared"
 	"booky-backend/internal/trans"
 	"errors"
 	"net/http"
@@ -27,6 +28,7 @@ func (h *Handler) GetCart(c *gin.Context) {
 	}
 	cart, total, err := h.service.GetCart(c.Request.Context(), userId)
 	if err != nil {
+		shared.Log(shared.ERROR, "get cart", shared.LMeta{"error": err})
 		switch {
 		case errors.Is(err, ErrCartNotFound):
 			c.JSON(http.StatusNotFound, trans.ApiErr{Code: trans.CART_NOT_FOUND, Message: "cart not found"})
@@ -70,6 +72,7 @@ func (h *Handler) AddItem(c *gin.Context) {
 
 	cart, err := h.service.AddItem(c.Request.Context(), userId, req)
 	if err != nil {
+		shared.Log(shared.ERROR, "add item to cart", shared.LMeta{"error": err.Error()})
 		switch {
 		case errors.Is(err, ErrCartNotFound):
 			c.JSON(http.StatusNotFound, trans.ApiErr{Code: trans.CART_NOT_FOUND, Message: "cart not found"})

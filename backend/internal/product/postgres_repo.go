@@ -3,7 +3,6 @@ package product
 import (
 	"booky-backend/internal/db"
 	"booky-backend/internal/model"
-	"booky-backend/internal/shared"
 	"booky-backend/internal/trans"
 	"context"
 	"errors"
@@ -27,7 +26,6 @@ func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, p *model.Product)
 		p.Title, p.Price,
 	).Scan(&createdProduct.ID, &createdProduct.Title, &createdProduct.Price, &createdProduct.CreatedAt, &createdProduct.UpdatedAt)
 	if err != nil {
-		shared.Log(shared.ERROR, "insert product: %w", err)
 		return nil, ErrInDatabase
 	}
 	return &createdProduct, nil
@@ -40,7 +38,6 @@ func (r *PostgresRepo) Save(ctx context.Context, db db.DBQE, p *model.Product) (
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrProductNotFount
 		}
-		shared.Log(shared.ERROR, "save product : %w", err)
 		return nil, ErrInDatabase
 	}
 	return &updatedProduct, nil
@@ -55,7 +52,6 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, productID uuid.U
 	).Scan(&p.ID, &p.Title, &p.Price, &p.CreatedAt, &p.UpdatedAt)
 
 	if err != nil {
-		shared.Log(shared.ERROR, "get product by id : %w", err)
 		return nil, ErrInDatabase
 	}
 
