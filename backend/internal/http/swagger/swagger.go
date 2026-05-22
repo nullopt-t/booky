@@ -1,4 +1,4 @@
-package app
+package swagger
 
 import (
 	"github.com/gin-gonic/gin"
@@ -6,6 +6,6 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func setUpSwagger(rg *gin.RouterGroup) {
+func SetUpDocs(rg *gin.RouterGroup) {
 	rg.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"booky-backend/internal/cart"
+	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/inventory"
 	"booky-backend/internal/product"
 	"booky-backend/pkg/logger"
@@ -33,7 +34,7 @@ type App struct {
 
 func (app *App) initHandlers(router *gin.Engine) {
 	v1 := router.Group("/api/v1")
-	setUpSwagger(v1)
+	swagger.SetUpDocs(v1)
 
 	txRunner := database.NewTxRunner(app.db)
 
