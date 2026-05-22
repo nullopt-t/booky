@@ -2,12 +2,9 @@ package inventory
 
 import (
 	"booky-backend/pkg/database"
-	"booky-backend/pkg/logger"
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type Repository struct {
@@ -21,21 +18,13 @@ func (r *Repository) Reserve(ctx context.Context, qe database.DBQE, productID uu
 	var available_quantity int
 	err := qe.QueryRow(ctx, "SELECT available_quantity FROM inventories WHERE product_id = $1 FOR UPDATE", productID).Scan(&available_quantity)
 	if err != nil {
-		return ErrInDatabase
-	}
-
-	if available_quantity < quantity {
-		return ErrInsufficientQuantity
+		return database.MapError(err)
 	}
 
 	// reserve the product
-	_, err = qe.Exec(ctx, "UPDATE inventories SET reserved_quantity += $1, available_quantity -= $1 WHERE product_id = $2", quantity, productID)
+	_, err = qe.Exec(ctx, "UPDATE inventories SET reserved_quantity += $1, available_quantity -= $1 WHERE product_id = $2 AND available_quantity >= $1", quantity, productID)
 	if err != nil {
-		logger.Log(logger.ERROR, err.Error())
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		return ErrInDatabase
+		return database.MapError(err)
 	}
 
 	return nil
@@ -45,25 +34,13 @@ func (r *Repository) Release(ctx context.Context, qe database.DBQE, productID uu
 	var reserved_quantity int
 	err := qe.QueryRow(ctx, "SELECT reserved_quantity FROM inventories WHERE product_id = $1 FOR UPDATE", productID).Scan(&reserved_quantity)
 	if err != nil {
-		logger.Log(logger.ERROR, err.Error())
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		return ErrInDatabase
-	}
-
-	if reserved_quantity < quantity {
-		return ErrInsufficientQuantity
+		return database.MapError(err)
 	}
 
 	// reserve the product
-	_, err = qe.Exec(ctx, "UPDATE inventories SET reserved_quantity -= $1, available_quantity += $1 WHERE product_id = $2", quantity, productID)
+	_, err = qe.Exec(ctx, "UPDATE inventories SET reserved_quantity -= $1, available_quantity += $1 WHERE product_id = $2 AND reserved_quantity >= $1", quantity, productID)
 	if err != nil {
-		logger.Log(logger.ERROR, err.Error())
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		return ErrInDatabase
+		return database.MapError(err)
 	}
 
 	return nil
@@ -73,11 +50,7 @@ func (r *Repository) GetAvailable(ctx context.Context, qe database.DBQE, product
 	var available_quantity int
 	err := qe.QueryRow(ctx, "SELECT available_quantity FROM inventories WHERE product_id = $1 ", productID).Scan(&available_quantity)
 	if err != nil {
-		logger.Log(logger.ERROR, err.Error())
-		if errors.Is(err, pgx.ErrNoRows) {
-			return available_quantity, ErrNotFound
-		}
-		return available_quantity, ErrInDatabase
+		return available_quantity, database.MapError(err)
 	}
 	return available_quantity, nil
 }
@@ -86,11 +59,7 @@ func (r *Repository) GetReserved(ctx context.Context, qe database.DBQE, productI
 	var reserved_quantity int
 	err := qe.QueryRow(ctx, "SELECT reserved_quantity FROM inventories WHERE product_id = $1 ", productID).Scan(&reserved_quantity)
 	if err != nil {
-		logger.Log(logger.ERROR, err.Error())
-		if errors.Is(err, pgx.ErrNoRows) {
-			return reserved_quantity, ErrNotFound
-		}
-		return reserved_quantity, ErrInDatabase
+		return reserved_quantity, database.MapError(err)
 	}
 	return reserved_quantity, nil
 }

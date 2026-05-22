@@ -12,7 +12,7 @@ type Hanlder struct {
 	service InventoryService
 }
 
-func NewInventoryHandler(service InventoryService) InventoryHandler {
+func NewHandler(service InventoryService) InventoryHandler {
 	return &Hanlder{
 		service,
 	}
