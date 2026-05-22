@@ -2,7 +2,7 @@ package product
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"booky-backend/pkg/database"
 	"context"
 
@@ -71,7 +71,7 @@ func (s *Service) Update(ctx context.Context, productID uuid.UUID, req UpdatePro
 	return savedProduct, nil
 }
 
-func (s *Service) GetAll(ctx context.Context, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
+func (s *Service) GetAll(ctx context.Context, q api.PageQuery) ([]*model.Product, *api.Page, error) {
 	return s.productRepo.GetAll(ctx, s.tx.DB(), q)
 }
 

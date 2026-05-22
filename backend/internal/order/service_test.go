@@ -2,7 +2,7 @@ package order
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"booky-backend/pkg/database"
 	"context"
 	"fmt"
@@ -16,7 +16,7 @@ import (
 type MockOrderRepository struct {
 	CreateFn           func(ctx context.Context, db database.DBQE, order model.Order) (*model.Order, error)
 	GetByIDFn          func(ctx context.Context, db database.DBQE, id uuid.UUID) (*model.Order, error)
-	GetAllFn           func(ctx context.Context, db database.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
+	GetAllFn           func(ctx context.Context, db database.DBQE, q *api.PageQuery) ([]*model.Order, *api.Page, error)
 	TransitionStatusFn func(ctx context.Context, db database.DBQE, id uuid.UUID, from, to model.OrderStatus) error
 	UpdateTotalPriceFn func(ctx context.Context, db database.DBQE, orderID uuid.UUID, total int) error
 }
@@ -39,7 +39,7 @@ func (m *MockOrderRepository) GetByID(ctx context.Context, db database.DBQE, id 
 	}
 	return m.GetByIDFn(ctx, db, id)
 }
-func (m *MockOrderRepository) GetAll(ctx context.Context, db database.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
+func (m *MockOrderRepository) GetAll(ctx context.Context, db database.DBQE, q *api.PageQuery) ([]*model.Order, *api.Page, error) {
 	if m.GetAllFn == nil {
 		panic("GetAllFn is not set")
 	}
@@ -117,14 +117,14 @@ func TestGetAll(t *testing.T) {
 
 	t.Run("success: returns orders and page", func(t *testing.T) {
 		orders := []*model.Order{{ID: uuid.New()}, {ID: uuid.New()}}
-		page := &trans.Page{Total: 2}
+		page := &api.Page{Total: 2}
 		repo := &MockOrderRepository{
-			GetAllFn: func(_ context.Context, _ database.DBQE, _ *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
+			GetAllFn: func(_ context.Context, _ database.DBQE, _ *api.PageQuery) ([]*model.Order, *api.Page, error) {
 				return orders, page, nil
 			},
 		}
 
-		got, gotPage, err := NewService(runner, repo).GetAll(context.Background(), &trans.PaginationQuery{})
+		got, gotPage, err := NewService(runner, repo).GetAll(context.Background(), &api.PageQuery{})
 		if err != nil {
 			t.Fatal("unexpected error:", err)
 		}
@@ -135,12 +135,12 @@ func TestGetAll(t *testing.T) {
 
 	t.Run("repo error: returns error", func(t *testing.T) {
 		repo := &MockOrderRepository{
-			GetAllFn: func(_ context.Context, _ database.DBQE, _ *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
+			GetAllFn: func(_ context.Context, _ database.DBQE, _ *api.PageQuery) ([]*model.Order, *api.Page, error) {
 				return nil, nil, fmt.Errorf("db error")
 			},
 		}
 
-		if _, _, err := NewService(runner, repo).GetAll(context.Background(), &trans.PaginationQuery{}); err == nil {
+		if _, _, err := NewService(runner, repo).GetAll(context.Background(), &api.PageQuery{}); err == nil {
 			t.Fatal("expected error, got nil")
 		}
 	})

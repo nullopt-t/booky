@@ -1,7 +1,7 @@
 package product
 
 import (
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,15 +24,15 @@ func NewHandler(s ProudctService) ProductHandler {
 // @Produce json
 // @Param query query trans.PaginationQuery true "Pagination query"
 // @Success 200 {object} ProductsResponse
-// @Failure 400 {object} trans.ApiErr
-// @Failure 500 {object} trans.ApiErr
+// @Failure 400 {object} api.ApiError
+// @Failure 500 {object} api.ApiError
 // @Router /products [get]
 func (h *Handler) GetAllProducts(c *gin.Context) {
-	var query trans.PaginationQuery
+	var query api.PageQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -52,7 +52,7 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -87,7 +87,7 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -99,7 +99,7 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -111,7 +111,7 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},
@@ -133,7 +133,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&p); err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -145,7 +145,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "internal_error",
 					Message: "unexpected behaviour",
 				},

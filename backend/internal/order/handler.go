@@ -2,7 +2,7 @@ package order
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +25,7 @@ func (h *Hanlder) CancelOrder(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -37,7 +37,7 @@ func (h *Hanlder) CancelOrder(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -48,17 +48,17 @@ func (h *Hanlder) CancelOrder(c *gin.Context) {
 	err = h.service.Cancel(c.Request.Context(), orderID)
 	switch err {
 	case ErrOrderNotPending:
-		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusBadRequest, gin.H{"error": api.ApiError{
 			Code:    "order_not_pending",
 			Message: "order is not pending",
 		}})
 	case ErrOrderNotFound:
-		c.JSON(http.StatusNotFound, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusNotFound, gin.H{"error": api.ApiError{
 			Code:    "order_not_found",
 			Message: "order not found",
 		}})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": api.ApiError{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})
@@ -75,7 +75,7 @@ func (h *Hanlder) ConfirmOrder(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -87,7 +87,7 @@ func (h *Hanlder) ConfirmOrder(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -98,17 +98,17 @@ func (h *Hanlder) ConfirmOrder(c *gin.Context) {
 	err = h.service.Confirm(c.Request.Context(), orderID)
 	switch err {
 	case ErrOrderNotPending:
-		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusBadRequest, gin.H{"error": api.ApiError{
 			Code:    "order_not_pending",
 			Message: "order is not pending",
 		}})
 	case ErrOrderNotFound:
-		c.JSON(http.StatusNotFound, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusNotFound, gin.H{"error": api.ApiError{
 			Code:    "order_not_found",
 			Message: "order not found",
 		}})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": api.ApiError{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})
@@ -125,7 +125,7 @@ func (h *Hanlder) GetOrderByID(c *gin.Context) {
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -137,7 +137,7 @@ func (h *Hanlder) GetOrderByID(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			gin.H{
-				"error": trans.ApiErr{
+				"error": api.ApiError{
 					Code:    "invalid_request",
 					Message: err.Error(),
 				},
@@ -147,7 +147,7 @@ func (h *Hanlder) GetOrderByID(c *gin.Context) {
 
 	order, err := h.service.GetByID(c.Request.Context(), orderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": api.ApiError{
 			Code:    "internal_error",
 			Message: err.Error(),
 		}})
@@ -174,9 +174,9 @@ func (h *Hanlder) GetOrderByID(c *gin.Context) {
 }
 
 func (h *Hanlder) GetAllOrders(c *gin.Context) {
-	var query trans.PaginationQuery
+	var query api.PageQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusBadRequest, gin.H{"error": api.ApiError{
 			Code:    "invalid_request",
 			Message: err.Error(),
 		}})
@@ -193,7 +193,7 @@ func (h *Hanlder) GetAllOrders(c *gin.Context) {
 
 	orders, page, err := h.service.GetAll(c.Request.Context(), &query)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": trans.ApiErr{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": api.ApiError{
 			Code:    "internal_error",
 			Message: "unexpected behaviour",
 		}})

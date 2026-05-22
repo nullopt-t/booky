@@ -1,6 +1,6 @@
 package config
 
-import "booky-backend/internal/utils"
+import "booky-backend/pkg/utils"
 
 type DatabaseConfig struct {
 	DBHost     string

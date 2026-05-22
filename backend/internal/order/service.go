@@ -2,7 +2,7 @@ package order
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"booky-backend/pkg/database"
 	"context"
 
@@ -26,7 +26,7 @@ func (s *Service) GetByID(ctx context.Context, orderID uuid.UUID) (*model.Order,
 	return order, nil
 }
 
-func (s *Service) GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
+func (s *Service) GetAll(ctx context.Context, q *api.PageQuery) ([]*model.Order, *api.Page, error) {
 	orders, page, err := s.repo.GetAll(ctx, s.tx.DB(), q)
 	if err != nil {
 		return nil, nil, err

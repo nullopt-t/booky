@@ -2,7 +2,7 @@ package product
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"booky-backend/pkg/database"
 	"context"
 	"errors"
@@ -58,7 +58,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, qe database.DBQE, productID 
 	return &p, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, qe database.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, qe database.DBQE, q api.PageQuery) ([]*model.Product, *api.Page, error) {
 	offset := (q.Page - 1) * q.Limit
 	rows, err := qe.Query(ctx,
 		`SELECT id, title, price, created_at, updated_at FROM products LIMIT $1 OFFSET $2`, q.Limit, offset)
@@ -85,7 +85,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, qe database.DBQE, q trans.Pag
 		return nil, nil, err
 	}
 
-	resultPage := &trans.Page{
+	resultPage := &api.Page{
 		Index: q.Page,
 		Limit: q.Limit,
 		Total: count,

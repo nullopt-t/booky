@@ -2,7 +2,7 @@ package order
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
 	"booky-backend/pkg/database"
 	"context"
 	"errors"
@@ -86,7 +86,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db database.DBQE, orderID uu
 	return &order, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, db database.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, db database.DBQE, q *api.PageQuery) ([]*model.Order, *api.Page, error) {
 	// build base query with pagination
 	sql := `
     SELECT
@@ -159,7 +159,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db database.DBQE, q *trans.Pa
 		return nil, nil, ErrInDatabase
 	}
 
-	resultPage := &trans.Page{
+	resultPage := &api.Page{
 		Index: q.Page,
 		Limit: q.Limit,
 		Total: count,

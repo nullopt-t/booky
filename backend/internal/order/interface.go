@@ -1,9 +1,9 @@
 package order
 
 import (
-	"booky-backend/pkg/database"
 	"booky-backend/internal/model"
-	"booky-backend/internal/trans"
+	"booky-backend/pkg/api"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +15,7 @@ type OrderRepository interface {
 
 	GetByID(ctx context.Context, db database.DBQE, orderID uuid.UUID) (*model.Order, error)
 
-	GetAll(ctx context.Context, db database.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
+	GetAll(ctx context.Context, db database.DBQE, q *api.PageQuery) ([]*model.Order, *api.Page, error)
 
 	TransitionStatus(ctx context.Context, db database.DBQE, orderID uuid.UUID, from, to model.OrderStatus) error
 
@@ -24,7 +24,7 @@ type OrderRepository interface {
 
 type OrderService interface {
 	GetByID(ctx context.Context, orderID uuid.UUID) (*model.Order, error)
-	GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
+	GetAll(ctx context.Context, q *api.PageQuery) ([]*model.Order, *api.Page, error)
 	Cancel(ctx context.Context, orderID uuid.UUID) error
 	Confirm(ctx context.Context, orderID uuid.UUID) error
 }
