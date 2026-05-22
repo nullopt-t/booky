@@ -27,6 +27,8 @@ type LogContext struct {
 	Line int
 }
 
+var contextFieldsCount int = reflect.TypeFor[LogContext]().NumField()
+
 func Log(level LogLevel, msg string, meta Meta) {
 	context := LogContext{}
 	_, file, line, ok := runtime.Caller(1)
@@ -35,7 +37,14 @@ func Log(level LogLevel, msg string, meta Meta) {
 		context.Line = line
 	}
 
-	var logsData = make([]any, 0, len(meta)*2+reflect.TypeFor[LogContext]().NumField()*2)
+	var length int
+	if meta != nil {
+		length = len(meta) * 2
+	}
+
+	length += contextFieldsCount * 2
+	
+	var logsData = make([]any, 0, length)
 	for k, v := range meta {
 		logsData = append(logsData, k, v)
 	}
