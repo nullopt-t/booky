@@ -1,9 +1,9 @@
 package order
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
+	"booky-backend/pkg/database"
 	"context"
 	"errors"
 
@@ -18,7 +18,7 @@ func NewPostgresRepository() OrderRepository {
 	return &PostgresRepo{}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, order model.Order) (*model.Order, error) {
+func (r *PostgresRepo) Create(ctx context.Context, db database.DBQE, order model.Order) (*model.Order, error) {
 	// create order
 	var createdOrder model.Order
 	err := db.QueryRow(ctx, `INSERT INTO orders(total_price) VALUES ($1) RETURNING id, status, total_price, created_at, updated_at`,
@@ -45,7 +45,7 @@ func (r *PostgresRepo) Create(ctx context.Context, db db.DBQE, order model.Order
 	return &createdOrder, nil
 }
 
-func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*model.Order, error) {
+func (r *PostgresRepo) GetByID(ctx context.Context, db database.DBQE, orderID uuid.UUID) (*model.Order, error) {
 	var order model.Order
 	err := db.QueryRow(ctx, `
     SELECT
@@ -86,7 +86,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUI
 	return &order, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, db database.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error) {
 	// build base query with pagination
 	sql := `
     SELECT
@@ -170,7 +170,7 @@ func (r *PostgresRepo) GetAll(ctx context.Context, db db.DBQE, q *trans.Paginati
 
 func (r *PostgresRepo) TransitionStatus(
 	ctx context.Context,
-	db db.DBQE,
+	db database.DBQE,
 	orderID uuid.UUID,
 	from,
 	to model.OrderStatus,
@@ -215,7 +215,7 @@ func (r *PostgresRepo) TransitionStatus(
 	return nil
 }
 
-func (r *PostgresRepo) UpdateTotalPrice(ctx context.Context, db db.DBQE, orderID uuid.UUID, total int) error {
+func (r *PostgresRepo) UpdateTotalPrice(ctx context.Context, db database.DBQE, orderID uuid.UUID, total int) error {
 	_, err := db.Exec(ctx, `
 		UPDATE orders
 		SET total_price = $1

@@ -1,7 +1,7 @@
 package order
 
 import (
-	"booky-backend/internal/db"
+	"booky-backend/pkg/database"
 	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
 	"context"
@@ -11,15 +11,15 @@ import (
 )
 
 type OrderRepository interface {
-	Create(ctx context.Context, db db.DBQE, order model.Order) (*model.Order, error)
+	Create(ctx context.Context, db database.DBQE, order model.Order) (*model.Order, error)
 
-	GetByID(ctx context.Context, db db.DBQE, orderID uuid.UUID) (*model.Order, error)
+	GetByID(ctx context.Context, db database.DBQE, orderID uuid.UUID) (*model.Order, error)
 
-	GetAll(ctx context.Context, db db.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
+	GetAll(ctx context.Context, db database.DBQE, q *trans.PaginationQuery) ([]*model.Order, *trans.Page, error)
 
-	TransitionStatus(ctx context.Context, db db.DBQE, orderID uuid.UUID, from, to model.OrderStatus) error
+	TransitionStatus(ctx context.Context, db database.DBQE, orderID uuid.UUID, from, to model.OrderStatus) error
 
-	UpdateTotalPrice(ctx context.Context, db db.DBQE, orderID uuid.UUID, total int) error
+	UpdateTotalPrice(ctx context.Context, db database.DBQE, orderID uuid.UUID, total int) error
 }
 
 type OrderService interface {

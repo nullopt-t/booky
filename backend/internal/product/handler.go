@@ -16,6 +16,17 @@ func NewHandler(s ProudctService) ProductHandler {
 	return &Handler{s}
 }
 
+// GetAllProducts godoc
+// @Summary Get all products
+// @Description Get all products
+// @Tags Products
+// @Accept json
+// @Produce json
+// @Param query query trans.PaginationQuery true "Pagination query"
+// @Success 200 {object} ProductsResponse
+// @Failure 400 {object} trans.ApiErr
+// @Failure 500 {object} trans.ApiErr
+// @Router /products [get]
 func (h *Handler) GetAllProducts(c *gin.Context) {
 	var query trans.PaginationQuery
 	if err := c.ShouldBindQuery(&query); err != nil {

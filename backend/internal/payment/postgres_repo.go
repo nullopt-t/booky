@@ -2,7 +2,7 @@ package payment
 
 import (
 	"booky-backend/internal/db"
-	"booky-backend/internal/shared"
+	"booky-backend/pkg/logger"
 	"context"
 	"errors"
 	"time"
@@ -62,7 +62,7 @@ func (r *PostgresRepository) Create(ctx context.Context, req *CreatePaymentReque
 	}
 
 	if err != pgx.ErrNoRows {
-		shared.Log(shared.DEBUG, "failed to check idempotency: %v", err.Error())
+		logger.Log(logger.DEBUG, "failed to check idempotency: %v", err.Error())
 		return nil, ErrInDatabase
 	}
 
@@ -103,7 +103,7 @@ func (r *PostgresRepository) Create(ctx context.Context, req *CreatePaymentReque
 	).Scan(&payment.ID)
 
 	if err != nil {
-		shared.Log(shared.DEBUG, "failed to create payment: %v", err.Error())
+		logger.Log(logger.DEBUG, "failed to create payment: %v", err.Error())
 		return nil, ErrInDatabase
 	}
 

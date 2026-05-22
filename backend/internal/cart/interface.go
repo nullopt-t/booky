@@ -3,7 +3,7 @@ package cart
 import (
 	"context"
 
-	"booky-backend/internal/db"
+	"booky-backend/pkg/database"
 	"booky-backend/internal/model"
 
 	"github.com/gin-gonic/gin"
@@ -11,14 +11,14 @@ import (
 )
 
 type ProductRepository interface {
-	GetByID(ctx context.Context, db db.DBQE, productID uuid.UUID) (*model.Product, error)
+	GetByID(ctx context.Context, db database.DBQE, productID uuid.UUID) (*model.Product, error)
 }
 
 type CartRepository interface {
-	Create(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
-	GetByUserID(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
-	Empty(ctx context.Context, db db.DBQE, userID uuid.UUID) error
-	Save(ctx context.Context, db db.DBQE, cart *model.Cart) error
+	Create(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error)
+	GetByUserID(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error)
+	Empty(ctx context.Context, db database.DBQE, userID uuid.UUID) error
+	Save(ctx context.Context, db database.DBQE, cart *model.Cart) error
 }
 
 type CartService interface {

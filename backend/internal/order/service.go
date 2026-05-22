@@ -1,20 +1,20 @@
 package order
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	tx   db.Runner
+	tx   database.Runner
 	repo OrderRepository
 }
 
-func NewService(tx db.Runner, r OrderRepository) OrderService {
+func NewService(tx database.Runner, r OrderRepository) OrderService {
 	return &Service{tx: tx, repo: r}
 }
 
@@ -35,13 +35,13 @@ func (s *Service) GetAll(ctx context.Context, q *trans.PaginationQuery) ([]*mode
 }
 
 func (s *Service) Cancel(ctx context.Context, orderID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
 		return s.repo.TransitionStatus(ctx, s.tx.DB(), orderID, model.OrderStatusPending, model.OrderStatusCancelled)
 	})
 }
 
 func (s *Service) Confirm(ctx context.Context, orderID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
 		return s.repo.TransitionStatus(ctx, s.tx.DB(), orderID, model.OrderStatusPending, model.OrderStatusConfirmed)
 	})
 }

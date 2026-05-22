@@ -4,12 +4,12 @@ import (
 	"booky-backend/internal/cart"
 	"booky-backend/internal/inventory"
 	"booky-backend/internal/product"
-	"booky-backend/internal/shared"
+	"booky-backend/pkg/logger"
 
 	// "booky-backend/internal/checkout"
-	"booky-backend/internal/config"
-	"booky-backend/internal/db"
 	"booky-backend/internal/order"
+	"booky-backend/pkg/config"
+	"booky-backend/pkg/database"
 	"context"
 	"fmt"
 	"net/http"
@@ -28,13 +28,14 @@ type App struct {
 	server *http.Server
 
 	// database
-	db *db.DB
+	db *database.DB
 }
 
 func (app *App) initHandlers(router *gin.Engine) {
 	v1 := router.Group("/api/v1")
+	setUpSwagger(v1)
 
-	txRunner := db.NewTxRunner(app.db)
+	txRunner := database.NewTxRunner(app.db)
 
 	// inventory
 	inventoryRepo := inventory.NewPostgresRepository()
@@ -75,14 +76,14 @@ func (app *App) Shutdown() {
 		app.db.Close()
 	}
 
-	shared.Log(shared.DEBUG, "Graceful Shutdown")
+	logger.Log(logger.DEBUG, "Graceful Shutdown")
 }
 
 func (app *App) Run() error {
 	cfg := config.Load()
 
 	var err error
-	app.db, err = db.ConnectDB(context.Background(), cfg)
+	app.db, err = database.ConnectDB(context.Background(), cfg)
 	if err != nil {
 		return err
 	}
@@ -95,6 +96,6 @@ func (app *App) Run() error {
 		Handler: router,
 	}
 
-	shared.Log(shared.DEBUG, fmt.Sprintf("Server started on port %s", cfg.SvPort))
+	logger.Log(logger.DEBUG, fmt.Sprintf("Server started on port %s", cfg.SvPort))
 	return app.server.ListenAndServe()
 }

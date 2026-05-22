@@ -1,8 +1,8 @@
 package checkout
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/gin-gonic/gin"
@@ -10,24 +10,24 @@ import (
 )
 
 type CartRepository interface {
-	GetByUserID(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
-	Empty(ctx context.Context, db db.DBQE, userID uuid.UUID) error
-	Save(ctx context.Context, db db.DBQE, cart *model.Cart) error
+	GetByUserID(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error)
+	Empty(ctx context.Context, db database.DBQE, userID uuid.UUID) error
+	Save(ctx context.Context, db database.DBQE, cart *model.Cart) error
 }
 
 type ProductRepository interface {
-	GetByID(ctx context.Context, db db.DBQE, productID uuid.UUID) (*model.Product, error)
+	GetByID(ctx context.Context, db database.DBQE, productID uuid.UUID) (*model.Product, error)
 }
 
 type OrderRepository interface {
-	Create(ctx context.Context, db db.DBQE, order *model.Order) (*model.Order, error)
+	Create(ctx context.Context, db database.DBQE, order *model.Order) (*model.Order, error)
 }
 
 type InventoryRepository interface {
-	Reserve(ctx context.Context, db db.DBQE, productID uuid.UUID, quantity int) error
-	Release(ctx context.Context, pdb db.DBQE, roductID uuid.UUID, quantity int) error
-	GetAvailable(ctx context.Context, db db.DBQE, productID uuid.UUID) (int, error)
-	GetReserved(ctx context.Context, db db.DBQE, productID uuid.UUID) (int, error)
+	Reserve(ctx context.Context, db database.DBQE, productID uuid.UUID, quantity int) error
+	Release(ctx context.Context, pdb database.DBQE, roductID uuid.UUID, quantity int) error
+	GetAvailable(ctx context.Context, db database.DBQE, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, db database.DBQE, productID uuid.UUID) (int, error)
 }
 
 type CheckoutService interface {

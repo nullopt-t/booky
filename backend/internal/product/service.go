@@ -1,27 +1,27 @@
 package product
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	tx            db.Runner
+	tx            database.Runner
 	productRepo   ProductRepository
 	inventoryRepo InventoryRepository
 }
 
-func NewService(tx db.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
+func NewService(tx database.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
 	return &Service{tx, productRepo, inventoryRepo}
 }
 
 func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*model.Product, error) {
 	var createdProduct *model.Product
-	err := s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	err := s.tx.WithTx(ctx, func(tx database.DBQE) error {
 		var err error
 		createdProduct, err = s.productRepo.Create(ctx, tx, &model.Product{
 			Title: req.Title,
@@ -55,7 +55,7 @@ func (s *Service) Update(ctx context.Context, productID uuid.UUID, req UpdatePro
 	}
 
 	var savedProduct *model.Product
-	err = s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	err = s.tx.WithTx(ctx, func(tx database.DBQE) error {
 		var err error
 		savedProduct, err = s.productRepo.Save(ctx, tx, existedProduct)
 		if err != nil {

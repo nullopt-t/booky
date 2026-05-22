@@ -1,8 +1,8 @@
 package cart
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
+	"booky-backend/pkg/database"
 	"context"
 	"fmt"
 	"testing"
@@ -11,31 +11,31 @@ import (
 )
 
 type MockCartRepository struct {
-	CreateFn      func(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
-	GetByUserIDFn func(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error)
-	EmptyFn       func(ctx context.Context, db db.DBQE, userID uuid.UUID) error
-	SaveFn        func(ctx context.Context, db db.DBQE, cart *model.Cart) error
+	CreateFn      func(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error)
+	GetByUserIDFn func(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error)
+	EmptyFn       func(ctx context.Context, db database.DBQE, userID uuid.UUID) error
+	SaveFn        func(ctx context.Context, db database.DBQE, cart *model.Cart) error
 }
 
-func (m *MockCartRepository) Create(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (m *MockCartRepository) Create(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error) {
 	if m.CreateFn == nil {
 		panic("CreateFn is not set")
 	}
 	return m.CreateFn(ctx, db, userID)
 }
-func (m *MockCartRepository) GetByUserID(ctx context.Context, db db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (m *MockCartRepository) GetByUserID(ctx context.Context, db database.DBQE, userID uuid.UUID) (*model.Cart, error) {
 	if m.GetByUserIDFn == nil {
 		panic("GetByUserIDFn is not set")
 	}
 	return m.GetByUserIDFn(ctx, db, userID)
 }
-func (m *MockCartRepository) Empty(ctx context.Context, db db.DBQE, userID uuid.UUID) error {
+func (m *MockCartRepository) Empty(ctx context.Context, db database.DBQE, userID uuid.UUID) error {
 	if m.EmptyFn == nil {
 		panic("EmptyFn is not set")
 	}
 	return m.EmptyFn(ctx, db, userID)
 }
-func (m *MockCartRepository) Save(ctx context.Context, db db.DBQE, cart *model.Cart) error {
+func (m *MockCartRepository) Save(ctx context.Context, db database.DBQE, cart *model.Cart) error {
 	if m.SaveFn == nil {
 		panic("SaveFn is not set")
 	}
@@ -43,17 +43,17 @@ func (m *MockCartRepository) Save(ctx context.Context, db db.DBQE, cart *model.C
 }
 
 type MockRunner struct {
-	WithTxFn func(ctx context.Context, fn func(tx db.DBQE) error) error
-	DBFn     func() db.DBQE
+	WithTxFn func(ctx context.Context, fn func(tx database.DBQE) error) error
+	DBFn     func() database.DBQE
 }
 
-func (m *MockRunner) WithTx(ctx context.Context, fn func(tx db.DBQE) error) error {
+func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.DBQE) error) error {
 	if m.WithTxFn == nil {
 		panic("WithTxFn is not set")
 	}
 	return m.WithTxFn(ctx, fn)
 }
-func (m *MockRunner) DB() db.DBQE {
+func (m *MockRunner) DB() database.DBQE {
 	if m.DBFn == nil {
 		panic("DBFn is not set")
 	}
@@ -61,25 +61,25 @@ func (m *MockRunner) DB() db.DBQE {
 }
 
 type MockProductRepository struct {
-	GetByIDFn func(ctx context.Context, db db.DBQE, id uuid.UUID) (*model.Product, error)
+	GetByIDFn func(ctx context.Context, db database.DBQE, id uuid.UUID) (*model.Product, error)
 }
 
-func (m *MockProductRepository) GetByID(ctx context.Context, db db.DBQE, id uuid.UUID) (*model.Product, error) {
+func (m *MockProductRepository) GetByID(ctx context.Context, db database.DBQE, id uuid.UUID) (*model.Product, error) {
 	if m.GetByIDFn == nil {
 		panic("GetByIDFn is not set")
 	}
 	return m.GetByIDFn(ctx, db, id)
 }
 
-func execTx(ctx context.Context, fn func(tx db.DBQE) error) error { return fn(nil) }
+func execTx(ctx context.Context, fn func(tx database.DBQE) error) error { return fn(nil) }
 
 func TestGetCart(t *testing.T) {
-	runner := &MockRunner{DBFn: func() db.DBQE { return nil }}
+	runner := &MockRunner{DBFn: func() database.DBQE { return nil }}
 
 	t.Run("success: returns items and correct total", func(t *testing.T) {
 		p1, p2 := uuid.New(), uuid.New()
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{Items: []model.CartItem{
 					{ProductID: p1, Quantity: 1},
 					{ProductID: p2, Quantity: 2},
@@ -88,7 +88,7 @@ func TestGetCart(t *testing.T) {
 		}
 		prices := map[uuid.UUID]int{p1: 100, p2: 50}
 		productRepo := &MockProductRepository{
-			GetByIDFn: func(_ context.Context, _ db.DBQE, id uuid.UUID) (*model.Product, error) {
+			GetByIDFn: func(_ context.Context, _ database.DBQE, id uuid.UUID) (*model.Product, error) {
 				return &model.Product{ID: id, Price: prices[id]}, nil
 			},
 		}
@@ -106,10 +106,10 @@ func TestGetCart(t *testing.T) {
 	t.Run("get fails, create succeeds: returns empty cart", func(t *testing.T) {
 		userID := uuid.New()
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
-				return nil, db.ErrNotFound
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
+				return nil, database.ErrNotFound
 			},
-			CreateFn: func(_ context.Context, _ db.DBQE, id uuid.UUID) (*model.Cart, error) {
+			CreateFn: func(_ context.Context, _ database.DBQE, id uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{UserID: id, Items: []model.CartItem{}}, nil
 			},
 		}
@@ -125,10 +125,10 @@ func TestGetCart(t *testing.T) {
 
 	t.Run("get and create both fail: returns error", func(t *testing.T) {
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return nil, fmt.Errorf("not found")
 			},
-			CreateFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			CreateFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return nil, fmt.Errorf("create failed")
 			},
 		}
@@ -141,12 +141,12 @@ func TestGetCart(t *testing.T) {
 
 	t.Run("product fetch fails: returns error", func(t *testing.T) {
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{Items: []model.CartItem{{ProductID: uuid.New(), Quantity: 1}}}, nil
 			},
 		}
 		productRepo := &MockProductRepository{
-			GetByIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Product, error) {
+			GetByIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Product, error) {
 				return nil, fmt.Errorf("product not found")
 			},
 		}
@@ -161,7 +161,7 @@ func TestGetCart(t *testing.T) {
 func TestEmptyCart(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runner := &MockRunner{WithTxFn: execTx}
-		repo := &MockCartRepository{EmptyFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) error { return nil }}
+		repo := &MockCartRepository{EmptyFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) error { return nil }}
 
 		if err := NewService(runner, repo, nil).EmptyCart(context.Background(), uuid.New()); err != nil {
 			t.Fatal("unexpected error:", err)
@@ -170,7 +170,7 @@ func TestEmptyCart(t *testing.T) {
 
 	t.Run("transaction failure", func(t *testing.T) {
 		runner := &MockRunner{
-			WithTxFn: func(_ context.Context, _ func(db.DBQE) error) error {
+			WithTxFn: func(_ context.Context, _ func(database.DBQE) error) error {
 				return fmt.Errorf("tx failed")
 			},
 		}
@@ -187,10 +187,10 @@ func TestAddItem(t *testing.T) {
 	t.Run("new product appended to cart", func(t *testing.T) {
 		existing := uuid.New()
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{Items: []model.CartItem{{ProductID: existing, Quantity: 1}}}, nil
 			},
-			SaveFn: func(_ context.Context, _ db.DBQE, cart *model.Cart) error {
+			SaveFn: func(_ context.Context, _ database.DBQE, cart *model.Cart) error {
 				if len(cart.Items) != 2 {
 					t.Fatalf("expected 2 items, got %d", len(cart.Items))
 				}
@@ -208,10 +208,10 @@ func TestAddItem(t *testing.T) {
 	t.Run("existing product quantity incremented", func(t *testing.T) {
 		productID := uuid.New()
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{Items: []model.CartItem{{ProductID: productID, Quantity: 1}}}, nil
 			},
-			SaveFn: func(_ context.Context, _ db.DBQE, cart *model.Cart) error {
+			SaveFn: func(_ context.Context, _ database.DBQE, cart *model.Cart) error {
 				if len(cart.Items) != 1 {
 					t.Fatalf("expected 1 item, got %d", len(cart.Items))
 				}
@@ -231,10 +231,10 @@ func TestAddItem(t *testing.T) {
 
 	t.Run("getOrCreateCart fails: returns error", func(t *testing.T) {
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return nil, fmt.Errorf("db error")
 			},
-			CreateFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			CreateFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return nil, fmt.Errorf("create failed")
 			},
 		}
@@ -248,10 +248,10 @@ func TestAddItem(t *testing.T) {
 
 	t.Run("save fails: returns error", func(t *testing.T) {
 		repo := &MockCartRepository{
-			GetByUserIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Cart, error) {
+			GetByUserIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Cart, error) {
 				return &model.Cart{Items: []model.CartItem{}}, nil
 			},
-			SaveFn: func(_ context.Context, _ db.DBQE, _ *model.Cart) error {
+			SaveFn: func(_ context.Context, _ database.DBQE, _ *model.Cart) error {
 				return fmt.Errorf("save failed")
 			},
 		}

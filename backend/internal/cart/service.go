@@ -1,8 +1,8 @@
 package cart
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
+	"booky-backend/pkg/database"
 	"context"
 	"errors"
 
@@ -10,19 +10,19 @@ import (
 )
 
 type Service struct {
-	tx          db.Runner
+	tx          database.Runner
 	cartRepo    CartRepository
 	productRepo ProductRepository
 }
 
-func NewService(tx db.Runner, cartRepo CartRepository, productRepo ProductRepository) CartService {
+func NewService(tx database.Runner, cartRepo CartRepository, productRepo ProductRepository) CartService {
 	return &Service{tx, cartRepo, productRepo}
 }
 
-func (s *Service) getOrCreateCart(ctx context.Context, qe db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (s *Service) getOrCreateCart(ctx context.Context, qe database.DBQE, userID uuid.UUID) (*model.Cart, error) {
 	cart, err := s.cartRepo.GetByUserID(ctx, qe, userID)
 	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
+		if errors.Is(err, database.ErrNotFound) {
 			return s.cartRepo.Create(ctx, qe, userID)
 		}
 		return nil, err
@@ -30,7 +30,7 @@ func (s *Service) getOrCreateCart(ctx context.Context, qe db.DBQE, userID uuid.U
 	return cart, nil
 }
 
-func (s *Service) addOrUpdateItem(ctx context.Context, qe db.DBQE, cart *model.Cart, req AddCartItemRequest) error {
+func (s *Service) addOrUpdateItem(ctx context.Context, qe database.DBQE, cart *model.Cart, req AddCartItemRequest) error {
 	found := false
 	for i, item := range cart.Items {
 		if item.ProductID == req.ProductID {
@@ -47,7 +47,7 @@ func (s *Service) addOrUpdateItem(ctx context.Context, qe db.DBQE, cart *model.C
 	}
 
 	if err := s.cartRepo.Save(ctx, qe, cart); err != nil {
-		if errors.Is(err, db.ErrNotFound) {
+		if errors.Is(err, database.ErrNotFound) {
 			return ErrCartNotFound
 		}
 		return err
@@ -59,7 +59,7 @@ func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, i
 	var total int
 	cart, err := s.getOrCreateCart(ctx, s.tx.DB(), userID)
 	if err != nil {
-		if errors.Is(err, db.ErrConflict) {
+		if errors.Is(err, database.ErrConflict) {
 			return nil, total, ErrCartAlreadyExist
 		}
 		return nil, total, err
@@ -68,7 +68,7 @@ func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, i
 	for _, item := range cart.Items {
 		product, err := s.productRepo.GetByID(ctx, s.tx.DB(), item.ProductID)
 		if err != nil {
-			if errors.Is(err, db.ErrNotFound) {
+			if errors.Is(err, database.ErrNotFound) {
 				return nil, total, ErrProductNotFound
 			}
 			return nil, total, err
@@ -83,7 +83,7 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 
 	var cart *model.Cart
 
-	err := s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	err := s.tx.WithTx(ctx, func(tx database.DBQE) error {
 
 		c, err := s.getOrCreateCart(ctx, tx, userID)
 		if err != nil {
@@ -102,7 +102,7 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 }
 
 func (s *Service) EmptyCart(ctx context.Context, userID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
 		return s.cartRepo.Empty(ctx, tx, userID)
 	})
 }

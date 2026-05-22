@@ -1,9 +1,9 @@
 package product
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/gin-gonic/gin"
@@ -11,15 +11,15 @@ import (
 )
 
 type InventoryRepository interface {
-	GetAvailable(ctx context.Context, db db.DBQE, productID uuid.UUID) (int, error)
-	GetReserved(ctx context.Context, db db.DBQE, productID uuid.UUID) (int, error)
+	GetAvailable(ctx context.Context, db database.DBQE, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, db database.DBQE, productID uuid.UUID) (int, error)
 }
 
 type ProductRepository interface {
-	Create(ctx context.Context, db db.DBQE, p *model.Product) (*model.Product, error)
-	Save(ctx context.Context, db db.DBQE, p *model.Product) (*model.Product, error)
-	GetByID(ctx context.Context, db db.DBQE, productID uuid.UUID) (*model.Product, error)
-	GetAll(ctx context.Context, db db.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error)
+	Create(ctx context.Context, db database.DBQE, p *model.Product) (*model.Product, error)
+	Save(ctx context.Context, db database.DBQE, p *model.Product) (*model.Product, error)
+	GetByID(ctx context.Context, db database.DBQE, productID uuid.UUID) (*model.Product, error)
+	GetAll(ctx context.Context, db database.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error)
 }
 
 type ProudctService interface {

@@ -1,9 +1,9 @@
 package checkout
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
-	"booky-backend/internal/shared"
+	"booky-backend/pkg/database"
+	"booky-backend/pkg/logger"
 	"context"
 	"fmt"
 
@@ -11,14 +11,14 @@ import (
 )
 
 type Service struct {
-	tx            *db.TxRunner
+	tx            *database.TxRunner
 	orderRepo     OrderRepository
 	cartRepo      CartRepository
 	productRepo   ProductRepository
 	inventoryRepo InventoryRepository
 }
 
-func NewService(tx *db.TxRunner, order OrderRepository, cart CartRepository, product ProductRepository, inventory InventoryRepository) CheckoutService {
+func NewService(tx *database.TxRunner, order OrderRepository, cart CartRepository, product ProductRepository, inventory InventoryRepository) CheckoutService {
 	return &Service{
 		tx:            tx,
 		orderRepo:     order,
@@ -29,10 +29,10 @@ func NewService(tx *db.TxRunner, order OrderRepository, cart CartRepository, pro
 }
 
 func (s *Service) Checkout(ctx context.Context, userID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx db.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
 		cart, err := s.cartRepo.GetByUserID(ctx, tx, userID)
 		if err != nil {
-			shared.Log(shared.ERROR, err.Error())
+			logger.Log(logger.ERROR, err.Error())
 			return ErrNotFound
 		}
 
@@ -41,13 +41,13 @@ func (s *Service) Checkout(ctx context.Context, userID uuid.UUID) error {
 		for _, item := range cart.Items {
 			p, err := s.productRepo.GetByID(ctx, tx, item.ProductID)
 			if err != nil {
-				shared.Log(shared.ERROR, err.Error())
+				logger.Log(logger.ERROR, err.Error())
 				return ErrProductNotFound
 			}
 
 			availableQuantity, err := s.inventoryRepo.GetAvailable(ctx, tx, p.ID)
 			if err != nil {
-				shared.Log(shared.ERROR, err.Error())
+				logger.Log(logger.ERROR, err.Error())
 				return err
 			}
 
@@ -72,7 +72,7 @@ func (s *Service) Checkout(ctx context.Context, userID uuid.UUID) error {
 			return err
 		}
 
-		shared.Log(shared.INFO, fmt.Sprintf("%s order created", order.ID))
+		logger.Log(logger.INFO, fmt.Sprintf("%s order created", order.ID))
 
 		return nil
 	})

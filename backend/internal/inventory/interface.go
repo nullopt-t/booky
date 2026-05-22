@@ -1,15 +1,15 @@
 package inventory
 
 import (
-	"booky-backend/internal/db"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/google/uuid"
 )
 
 type InventoryRepository interface {
-	Reserve(ctx context.Context, db db.Tx, productID uuid.UUID, quantity int) error
-	Release(ctx context.Context, pdb db.Tx, roductID uuid.UUID, quantity int) error
-	GetAvailable(ctx context.Context, db db.DBQE, productID uuid.UUID) (int, error)
-	GetReserved(ctx context.Context, db db.DBQE, productID uuid.UUID) (int, error)
+	Reserve(ctx context.Context, qe database.DBQE, productID uuid.UUID, quantity int) error
+	Release(ctx context.Context, qe database.DBQE, roductID uuid.UUID, quantity int) error
+	GetAvailable(ctx context.Context, qe database.DBQE, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, qe database.DBQE, productID uuid.UUID) (int, error)
 }

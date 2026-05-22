@@ -1,7 +1,7 @@
-package db
+package database
 
 import (
-	"booky-backend/internal/config"
+	"booky-backend/pkg/config"
 	"context"
 	"fmt"
 

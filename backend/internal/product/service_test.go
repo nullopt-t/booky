@@ -1,9 +1,9 @@
 package product
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
 	"booky-backend/internal/trans"
+	"booky-backend/pkg/database"
 	"context"
 	"fmt"
 	"testing"
@@ -14,31 +14,31 @@ import (
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 type MockProductRepository struct {
-	CreateFn  func(ctx context.Context, db db.DBQE, product *model.Product) (*model.Product, error)
-	SaveFn    func(ctx context.Context, db db.DBQE, product *model.Product) (*model.Product, error)
-	GetByIDFn func(ctx context.Context, db db.DBQE, id uuid.UUID) (*model.Product, error)
-	GetAllFn  func(ctx context.Context, db db.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error)
+	CreateFn  func(ctx context.Context, db database.DBQE, product *model.Product) (*model.Product, error)
+	SaveFn    func(ctx context.Context, db database.DBQE, product *model.Product) (*model.Product, error)
+	GetByIDFn func(ctx context.Context, db database.DBQE, id uuid.UUID) (*model.Product, error)
+	GetAllFn  func(ctx context.Context, db database.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error)
 }
 
-func (m *MockProductRepository) Create(ctx context.Context, db db.DBQE, product *model.Product) (*model.Product, error) {
+func (m *MockProductRepository) Create(ctx context.Context, db database.DBQE, product *model.Product) (*model.Product, error) {
 	if m.CreateFn == nil {
 		panic("CreateFn is not set")
 	}
 	return m.CreateFn(ctx, db, product)
 }
-func (m *MockProductRepository) Save(ctx context.Context, db db.DBQE, product *model.Product) (*model.Product, error) {
+func (m *MockProductRepository) Save(ctx context.Context, db database.DBQE, product *model.Product) (*model.Product, error) {
 	if m.SaveFn == nil {
 		panic("SaveFn is not set")
 	}
 	return m.SaveFn(ctx, db, product)
 }
-func (m *MockProductRepository) GetByID(ctx context.Context, db db.DBQE, id uuid.UUID) (*model.Product, error) {
+func (m *MockProductRepository) GetByID(ctx context.Context, db database.DBQE, id uuid.UUID) (*model.Product, error) {
 	if m.GetByIDFn == nil {
 		panic("GetByIDFn is not set")
 	}
 	return m.GetByIDFn(ctx, db, id)
 }
-func (m *MockProductRepository) GetAll(ctx context.Context, db db.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
+func (m *MockProductRepository) GetAll(ctx context.Context, db database.DBQE, q trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
 	if m.GetAllFn == nil {
 		panic("GetAllFn is not set")
 	}
@@ -48,17 +48,17 @@ func (m *MockProductRepository) GetAll(ctx context.Context, db db.DBQE, q trans.
 type MockInventoryRepository struct{}
 
 type MockRunner struct {
-	WithTxFn func(ctx context.Context, fn func(tx db.DBQE) error) error
-	DBFn     func() db.DBQE
+	WithTxFn func(ctx context.Context, fn func(tx database.DBQE) error) error
+	DBFn     func() database.DBQE
 }
 
-func (m *MockRunner) WithTx(ctx context.Context, fn func(tx db.DBQE) error) error {
+func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.DBQE) error) error {
 	if m.WithTxFn == nil {
 		panic("WithTxFn is not set")
 	}
 	return m.WithTxFn(ctx, fn)
 }
-func (m *MockRunner) DB() db.DBQE {
+func (m *MockRunner) DB() database.DBQE {
 	if m.DBFn == nil {
 		panic("DBFn is not set")
 	}
@@ -67,8 +67,8 @@ func (m *MockRunner) DB() db.DBQE {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-func execTx(_ context.Context, fn func(db.DBQE) error) error { return fn(nil) }
-func noDB() db.DBQE                                          { return nil }
+func execTx(_ context.Context, fn func(database.DBQE) error) error { return fn(nil) }
+func noDB() database.DBQE                                          { return nil }
 
 // ── TestCreate ────────────────────────────────────────────────────────────────
 
@@ -78,7 +78,7 @@ func TestCreate(t *testing.T) {
 	t.Run("success: returns created product", func(t *testing.T) {
 		req := CreateProductRequest{Title: "Book", Price: 99}
 		repo := &MockProductRepository{
-			CreateFn: func(_ context.Context, _ db.DBQE, p *model.Product) (*model.Product, error) {
+			CreateFn: func(_ context.Context, _ database.DBQE, p *model.Product) (*model.Product, error) {
 				if p.Title != req.Title || p.Price != req.Price {
 					t.Fatalf("unexpected product passed to Create: %+v", p)
 				}
@@ -97,7 +97,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("repo error: returns error", func(t *testing.T) {
 		repo := &MockProductRepository{
-			CreateFn: func(_ context.Context, _ db.DBQE, _ *model.Product) (*model.Product, error) {
+			CreateFn: func(_ context.Context, _ database.DBQE, _ *model.Product) (*model.Product, error) {
 				return nil, fmt.Errorf("db error")
 			},
 		}
@@ -115,7 +115,7 @@ func TestUpdate(t *testing.T) {
 
 	existingProduct := &model.Product{ID: uuid.New(), Title: "Old Title", Price: 50}
 
-	getByID := func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Product, error) {
+	getByID := func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Product, error) {
 		return existingProduct, nil
 	}
 
@@ -123,7 +123,7 @@ func TestUpdate(t *testing.T) {
 		newTitle, newPrice := "New Title", 200
 		repo := &MockProductRepository{
 			GetByIDFn: getByID,
-			SaveFn: func(_ context.Context, _ db.DBQE, p *model.Product) (*model.Product, error) {
+			SaveFn: func(_ context.Context, _ database.DBQE, p *model.Product) (*model.Product, error) {
 				if p.Title != newTitle {
 					t.Fatalf("expected title %q, got %q", newTitle, p.Title)
 				}
@@ -145,7 +145,7 @@ func TestUpdate(t *testing.T) {
 		newPrice := 300
 		repo := &MockProductRepository{
 			GetByIDFn: getByID,
-			SaveFn: func(_ context.Context, _ db.DBQE, p *model.Product) (*model.Product, error) {
+			SaveFn: func(_ context.Context, _ database.DBQE, p *model.Product) (*model.Product, error) {
 				if p.Title != existingProduct.Title {
 					t.Fatalf("title should be unchanged, got %q", p.Title)
 				}
@@ -165,7 +165,7 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("product not found: returns error", func(t *testing.T) {
 		repo := &MockProductRepository{
-			GetByIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Product, error) {
+			GetByIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Product, error) {
 				return nil, fmt.Errorf("not found")
 			},
 		}
@@ -178,7 +178,7 @@ func TestUpdate(t *testing.T) {
 	t.Run("save fails: returns error", func(t *testing.T) {
 		repo := &MockProductRepository{
 			GetByIDFn: getByID,
-			SaveFn: func(_ context.Context, _ db.DBQE, _ *model.Product) (*model.Product, error) {
+			SaveFn: func(_ context.Context, _ database.DBQE, _ *model.Product) (*model.Product, error) {
 				return nil, fmt.Errorf("save failed")
 			},
 		}
@@ -201,7 +201,7 @@ func TestGetAll(t *testing.T) {
 		products := []*model.Product{{ID: uuid.New()}, {ID: uuid.New()}}
 		page := &trans.Page{Total: 2}
 		repo := &MockProductRepository{
-			GetAllFn: func(_ context.Context, _ db.DBQE, _ trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
+			GetAllFn: func(_ context.Context, _ database.DBQE, _ trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
 				return products, page, nil
 			},
 		}
@@ -217,7 +217,7 @@ func TestGetAll(t *testing.T) {
 
 	t.Run("repo error: returns error", func(t *testing.T) {
 		repo := &MockProductRepository{
-			GetAllFn: func(_ context.Context, _ db.DBQE, _ trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
+			GetAllFn: func(_ context.Context, _ database.DBQE, _ trans.PaginationQuery) ([]*model.Product, *trans.Page, error) {
 				return nil, nil, fmt.Errorf("db error")
 			},
 		}
@@ -236,7 +236,7 @@ func TestGetByID(t *testing.T) {
 	t.Run("success: returns product", func(t *testing.T) {
 		productID := uuid.New()
 		repo := &MockProductRepository{
-			GetByIDFn: func(_ context.Context, _ db.DBQE, id uuid.UUID) (*model.Product, error) {
+			GetByIDFn: func(_ context.Context, _ database.DBQE, id uuid.UUID) (*model.Product, error) {
 				return &model.Product{ID: id}, nil
 			},
 		}
@@ -252,7 +252,7 @@ func TestGetByID(t *testing.T) {
 
 	t.Run("not found: returns error", func(t *testing.T) {
 		repo := &MockProductRepository{
-			GetByIDFn: func(_ context.Context, _ db.DBQE, _ uuid.UUID) (*model.Product, error) {
+			GetByIDFn: func(_ context.Context, _ database.DBQE, _ uuid.UUID) (*model.Product, error) {
 				return nil, fmt.Errorf("not found")
 			},
 		}

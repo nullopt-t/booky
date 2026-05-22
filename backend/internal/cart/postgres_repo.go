@@ -1,8 +1,8 @@
 package cart
 
 import (
-	"booky-backend/internal/db"
 	"booky-backend/internal/model"
+	"booky-backend/pkg/database"
 	"context"
 
 	"github.com/google/uuid"
@@ -14,7 +14,7 @@ func NewPostgresRepository() CartRepository {
 	return &PostgresRepository{}
 }
 
-func (r *PostgresRepository) Create(ctx context.Context, qe db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (r *PostgresRepository) Create(ctx context.Context, qe database.DBQE, userID uuid.UUID) (*model.Cart, error) {
 	var cart model.Cart
 	err := qe.QueryRow(ctx,
 		`INSERT INTO carts (user_id, created_at, updated_at)
@@ -23,13 +23,13 @@ func (r *PostgresRepository) Create(ctx context.Context, qe db.DBQE, userID uuid
 	).Scan(&cart.ID, &cart.CreatedAt, &cart.UpdatedAt)
 
 	if err != nil {
-		return nil, db.MapError(err)
+		return nil, database.MapError(err)
 	}
 
 	return &cart, nil
 }
 
-func (r *PostgresRepository) GetByUserID(ctx context.Context, qe db.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (r *PostgresRepository) GetByUserID(ctx context.Context, qe database.DBQE, userID uuid.UUID) (*model.Cart, error) {
 	var cart model.Cart
 	err := qe.QueryRow(ctx,
 		`SELECT id, user_id, created_at, updated_at FROM carts WHERE user_id=$1`,
@@ -37,7 +37,7 @@ func (r *PostgresRepository) GetByUserID(ctx context.Context, qe db.DBQE, userID
 	).Scan(&cart.ID, &cart.UserID, &cart.CreatedAt, &cart.UpdatedAt)
 
 	if err != nil {
-		return nil, db.MapError(err)
+		return nil, database.MapError(err)
 	}
 
 	rows, err := qe.Query(ctx,
@@ -46,26 +46,26 @@ func (r *PostgresRepository) GetByUserID(ctx context.Context, qe db.DBQE, userID
 	)
 
 	if err != nil {
-		return nil, db.MapError(err)
+		return nil, database.MapError(err)
 	}
 
 	for rows.Next() {
 		var item model.CartItem
 		err := rows.Scan(&item.ProductID, &item.Quantity)
 		if err != nil {
-			return nil, db.MapError(err)
+			return nil, database.MapError(err)
 		}
 		cart.Items = append(cart.Items, item)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, db.MapError(err)
+		return nil, database.MapError(err)
 	}
 
 	return &cart, nil
 }
 
-func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.Cart) error {
+func (r *PostgresRepository) Save(ctx context.Context, qe database.DBQE, cart *model.Cart) error {
 	// 1. Lock cart row (REAL race protection)
 	_, err := qe.Exec(ctx, `
 		SELECT id 
@@ -75,7 +75,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 	`, cart.ID)
 
 	if err != nil {
-		return db.MapError(err)
+		return database.MapError(err)
 	}
 
 	// 2. Update cart timestamp
@@ -86,7 +86,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 	`, cart.ID)
 
 	if err != nil {
-		return db.MapError(err)
+		return database.MapError(err)
 	}
 
 	// 3. Delete old items (safe because locked)
@@ -96,7 +96,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 	`, cart.ID)
 
 	if err != nil {
-		return db.MapError(err)
+		return database.MapError(err)
 	}
 
 	// 4. Insert fresh snapshot
@@ -111,14 +111,14 @@ func (r *PostgresRepository) Save(ctx context.Context, qe db.DBQE, cart *model.C
 		)
 
 		if err != nil {
-			return db.MapError(err)
+			return database.MapError(err)
 		}
 	}
 
 	return nil
 }
 
-func (r *PostgresRepository) Empty(ctx context.Context, qe db.DBQE, userID uuid.UUID) error {
+func (r *PostgresRepository) Empty(ctx context.Context, qe database.DBQE, userID uuid.UUID) error {
 	_, err := qe.Exec(ctx,
 		`DELETE FROM cart_items WHERE cart_id IN (SELECT id FROM carts WHERE user_id=$1)`,
 		userID,
