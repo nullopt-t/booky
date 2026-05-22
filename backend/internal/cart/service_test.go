@@ -93,13 +93,9 @@ func TestGetCart(t *testing.T) {
 			},
 		}
 
-		_, total, err := NewService(runner, repo, productRepo).GetCart(context.Background(), uuid.New())
+		_, err := NewService(runner, repo, productRepo).GetCart(context.Background(), uuid.New())
 		if err != nil {
 			t.Fatal("unexpected error:", err)
-		}
-		// 1×100 + 2×50 = 200
-		if total != 200 {
-			t.Fatalf("expected total 200, got %d", total)
 		}
 	})
 
@@ -114,12 +110,12 @@ func TestGetCart(t *testing.T) {
 			},
 		}
 
-		cart, total, err := NewService(runner, repo, nil).GetCart(context.Background(), userID)
+		cart, err := NewService(runner, repo, nil).GetCart(context.Background(), userID)
 		if err != nil {
 			t.Fatal("unexpected error:", err)
 		}
-		if cart.UserID != userID || total != 0 {
-			t.Fatalf("expected empty cart for user %v, got %+v total %d", userID, cart, total)
+		if cart.UserID != userID {
+			t.Fatalf("expected empty cart for user %v, got %+v", userID, cart)
 		}
 	})
 
@@ -133,7 +129,7 @@ func TestGetCart(t *testing.T) {
 			},
 		}
 
-		_, _, err := NewService(runner, repo, nil).GetCart(context.Background(), uuid.New())
+		_, err := NewService(runner, repo, nil).GetCart(context.Background(), uuid.New())
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -151,7 +147,7 @@ func TestGetCart(t *testing.T) {
 			},
 		}
 
-		_, _, err := NewService(runner, repo, productRepo).GetCart(context.Background(), uuid.New())
+		_, err := NewService(runner, repo, productRepo).GetCart(context.Background(), uuid.New())
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
