@@ -20,7 +20,9 @@ const (
 
 type Meta map[string]any
 
-var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	Level: slog.LevelDebug,
+}))
 
 type LogContext struct {
 	File string
@@ -38,7 +40,8 @@ func Log(level LogLevel, msg string, meta ...Meta) {
 	context := LogContext{}
 	_, file, line, ok := runtime.Caller(1)
 	if ok {
-		context.File = file[strings.LastIndex(file, "/"):]
+		paths := strings.Split(file, "/")
+		context.File = paths[len(paths)-2] + "/" + paths[len(paths)-1]
 		context.Line = line
 	}
 
