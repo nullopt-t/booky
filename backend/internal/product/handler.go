@@ -22,10 +22,10 @@ func NewHandler(s ProudctService) ProductHandler {
 // @Tags Products
 // @Accept json
 // @Produce json
-// @Param query query trans.PaginationQuery true "Pagination query"
+// @Param query query api.PageQuery true "Pagination query"
 // @Success 200 {object} ProductsResponse
-// @Failure 400 {object} api.ApiError
-// @Failure 500 {object} api.ApiError
+// @Failure 400 {object} api.ErrorResponse
+// @Failure 500 {object} api.ErrorResponse
 // @Router /products [get]
 func (h *Handler) GetAllProducts(c *gin.Context) {
 	var query api.PageQuery

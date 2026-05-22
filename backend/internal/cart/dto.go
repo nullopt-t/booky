@@ -19,6 +19,5 @@ type CartItemResponse struct {
 type CartResponse struct {
 	ID        uuid.UUID          `json:"id"`
 	Items     []CartItemResponse `json:"items"`
-	Total     int                `json:"total"`
 	UpdatedAt time.Time          `json:"updated_at"`
 }

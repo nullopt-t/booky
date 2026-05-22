@@ -8,17 +8,27 @@ import (
 	"github.com/google/uuid"
 )
 
-type Hanlder struct {
+type Handler struct {
 	service InventoryService
 }
 
 func NewHandler(service InventoryService) InventoryHandler {
-	return &Hanlder{
+	return &Handler{
 		service,
 	}
 }
 
-func (h *Hanlder) GetAvailable(c *gin.Context) {
+// @Summary Get available inventory
+// @Description Get available inventory by product id
+// @Tags inventory
+// @Accept json
+// @Produce json
+// @Param product_id path string true "Product ID"
+// @Success 200 {object} AvailableResponse
+// @Failure 400 {object} api.ErrorResponse
+// @Failure 500 {object} api.ErrorResponse
+// @Router /inventories/{product_id}/available [get]
+func (h *Handler) GetAvailable(c *gin.Context) {
 	params := struct {
 		ProductID string `uri:"product_id" binding:"required"`
 	}{}
@@ -45,7 +55,17 @@ func (h *Hanlder) GetAvailable(c *gin.Context) {
 	}))
 }
 
-func (h *Hanlder) GetReserved(c *gin.Context) {
+// @Summary Get reserved inventory
+// @Description Get reserved inventory by product id
+// @Tags inventory
+// @Accept json
+// @Produce json
+// @Param product_id path string true "Product ID"
+// @Success 200 {object} ReservedResponse
+// @Failure 400 {object} api.ErrorResponse
+// @Failure 500 {object} api.ErrorResponse
+// @Router /inventories/{product_id}/reserved [get]
+func (h *Handler) GetReserved(c *gin.Context) {
 	params := struct {
 		ProductID string `uri:"product_id" binding:"required"`
 	}{}

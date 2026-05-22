@@ -22,7 +22,7 @@ type CartRepository interface {
 }
 
 type CartService interface {
-	GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, int, error)
+	GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, error)
 	AddItem(ctx context.Context, userID uuid.UUID, req AddCartItemRequest) (*model.Cart, error)
 	EmptyCart(ctx context.Context, userID uuid.UUID) error
 }

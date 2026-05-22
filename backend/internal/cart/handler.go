@@ -20,13 +20,23 @@ func NewHandler(service CartService) CartHandler {
 	}
 }
 
+// GetCart
+// @Summary      Get current user's cart
+// @Description  Returns the cart for the current user with totals
+// @Tags         cart
+// @Produce      json
+// @Success      200  {object} CartResponse
+// @Failure      404  {object} api.ErrorResponse
+// @Failure      409  {object} api.ErrorResponse
+// @Failure      500  {object} api.ErrorResponse
+// @Router       /carts [get]
 func (h *Handler) GetCart(c *gin.Context) {
 	userId, err := uuid.Parse("20eebc99-9c0b-4ef8-bb6d-6bb9bd380b01")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	cart, total, err := h.service.GetCart(c.Request.Context(), userId)
+	cart, err := h.service.GetCart(c.Request.Context(), userId)
 	if err != nil {
 		logger.Log(logger.ERROR, "get cart", logger.LMeta{"error": err})
 		switch {
@@ -52,11 +62,23 @@ func (h *Handler) GetCart(c *gin.Context) {
 	c.JSON(200, gin.H{"data": CartResponse{
 		ID:        cart.ID,
 		Items:     items,
-		Total:     total,
 		UpdatedAt: cart.UpdatedAt,
 	}})
 }
 
+// AddItem
+// @Summary      Add item to user's cart
+// @Description  Adds a product to the current user's cart and returns the updated cart
+// @Tags         cart
+// @Accept       json
+// @Produce      json
+// @Param        body  body  cart.AddCartItemRequest  true  "Add cart item request"
+// @Success      200   {object} CartResponse
+// @Failure      400   {object} api.ErrorResponse
+// @Failure      404   {object} api.ErrorResponse
+// @Failure      409   {object} api.ErrorResponse
+// @Failure      500   {object} api.ErrorResponse
+// @Router       /carts/items [post]
 func (h *Handler) AddItem(c *gin.Context) {
 	userId, err := uuid.Parse("20eebc99-9c0b-4ef8-bb6d-6bb9bd380b01")
 	if err != nil {
@@ -99,6 +121,14 @@ func (h *Handler) AddItem(c *gin.Context) {
 	}})
 }
 
+// EmptyCart
+// @Summary      Empty user's cart
+// @Description  Removes all items from the current user's cart
+// @Tags         cart
+// @Produce      json
+// @Success      200  {object} string
+// @Failure      500  {object} api.ErrorResponse
+// @Router       /carts [delete]
 func (h *Handler) EmptyCart(c *gin.Context) {
 	userId, err := uuid.Parse("20eebc99-9c0b-4ef8-bb6d-6bb9bd380b01")
 	if err != nil {
