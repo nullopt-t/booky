@@ -18,7 +18,7 @@ const (
 	WARN
 )
 
-type Meta map[string]string
+type Meta map[string]any
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -29,7 +29,12 @@ type LogContext struct {
 
 var contextFieldsCount int = reflect.TypeFor[LogContext]().NumField()
 
-func Log(level LogLevel, msg string, meta Meta) {
+func Log(level LogLevel, msg string, meta ...Meta) {
+	var metaMap Meta
+	if len(meta) > 0 {
+		metaMap = meta[0]
+	}
+
 	context := LogContext{}
 	_, file, line, ok := runtime.Caller(1)
 	if ok {
@@ -38,14 +43,14 @@ func Log(level LogLevel, msg string, meta Meta) {
 	}
 
 	var length int
-	if meta != nil {
-		length = len(meta) * 2
+	if metaMap != nil {
+		length = len(metaMap) * 2
 	}
 
 	length += contextFieldsCount * 2
-	
+
 	var logsData = make([]any, 0, length)
-	for k, v := range meta {
+	for k, v := range metaMap {
 		logsData = append(logsData, k, v)
 	}
 
