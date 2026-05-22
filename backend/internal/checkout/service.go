@@ -5,6 +5,7 @@ import (
 	"booky-backend/internal/model"
 	"booky-backend/internal/shared"
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -71,7 +72,7 @@ func (s *Service) Checkout(ctx context.Context, userID uuid.UUID) error {
 			return err
 		}
 
-		shared.Log(shared.INFO, "%s order created", order.ID)
+		shared.Log(shared.INFO, fmt.Sprintf("%s order created", order.ID))
 
 		return nil
 	})

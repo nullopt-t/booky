@@ -4,6 +4,7 @@ import (
 	"booky-backend/internal/cart"
 	"booky-backend/internal/inventory"
 	"booky-backend/internal/product"
+	"booky-backend/internal/shared"
 
 	// "booky-backend/internal/checkout"
 	"booky-backend/internal/config"
@@ -74,7 +75,7 @@ func (app *App) Shutdown() {
 		app.db.Close()
 	}
 
-	fmt.Println("Graceful Shutdown")
+	shared.Log(shared.DEBUG, "Graceful Shutdown")
 }
 
 func (app *App) Run() error {
@@ -94,5 +95,6 @@ func (app *App) Run() error {
 		Handler: router,
 	}
 
+	shared.Log(shared.DEBUG, fmt.Sprintf("Server started on port %s", cfg.SvPort))
 	return app.server.ListenAndServe()
 }
