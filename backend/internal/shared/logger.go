@@ -18,7 +18,7 @@ const (
 	WARN
 )
 
-type Meta map[string]any
+type LMeta map[string]any
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 	Level: slog.LevelDebug,
@@ -31,8 +31,8 @@ type LogContext struct {
 
 var contextFieldsCount int = reflect.TypeFor[LogContext]().NumField()
 
-func Log(level LogLevel, msg string, meta ...Meta) {
-	var metaMap Meta
+func Log(level LogLevel, msg string, meta ...LMeta) {
+	var metaMap LMeta
 	if len(meta) > 0 {
 		metaMap = meta[0]
 	}
