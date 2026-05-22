@@ -11,15 +11,15 @@ import (
 )
 
 type InventoryRepository interface {
-	GetAvailable(ctx context.Context, db database.DBQE, productID uuid.UUID) (int, error)
-	GetReserved(ctx context.Context, db database.DBQE, productID uuid.UUID) (int, error)
+	GetAvailable(ctx context.Context, db database.QueryExecutor, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, db database.QueryExecutor, productID uuid.UUID) (int, error)
 }
 
 type ProductRepository interface {
-	Create(ctx context.Context, db database.DBQE, p *model.Product) (*model.Product, error)
-	Save(ctx context.Context, db database.DBQE, p *model.Product) (*model.Product, error)
-	GetByID(ctx context.Context, db database.DBQE, productID uuid.UUID) (*model.Product, error)
-	GetAll(ctx context.Context, db database.DBQE, q api.PageQuery) ([]*model.Product, *api.Page, error)
+	Create(ctx context.Context, db database.QueryExecutor, p *model.Product) (*model.Product, error)
+	Save(ctx context.Context, db database.QueryExecutor, p *model.Product) (*model.Product, error)
+	GetByID(ctx context.Context, db database.QueryExecutor, productID uuid.UUID) (*model.Product, error)
+	GetAll(ctx context.Context, db database.QueryExecutor, q api.PageQuery) ([]*model.Product, *api.Page, error)
 }
 
 type ProudctService interface {

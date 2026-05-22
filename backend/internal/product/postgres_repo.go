@@ -18,7 +18,7 @@ func NewPostgresRepository() ProductRepository {
 	return &PostgresRepo{}
 }
 
-func (r *PostgresRepo) Create(ctx context.Context, qe database.DBQE, p *model.Product) (*model.Product, error) {
+func (r *PostgresRepo) Create(ctx context.Context, qe database.QueryExecutor, p *model.Product) (*model.Product, error) {
 	var createdProduct model.Product
 	err := qe.QueryRow(ctx,
 		`INSERT INTO products (title, price)
@@ -31,7 +31,7 @@ func (r *PostgresRepo) Create(ctx context.Context, qe database.DBQE, p *model.Pr
 	return &createdProduct, nil
 }
 
-func (r *PostgresRepo) Save(ctx context.Context, qe database.DBQE, p *model.Product) (*model.Product, error) {
+func (r *PostgresRepo) Save(ctx context.Context, qe database.QueryExecutor, p *model.Product) (*model.Product, error) {
 	var updatedProduct model.Product
 	err := qe.QueryRow(ctx, "UPDATE products SET title = $1, price = $2 WHERE id = $3 RETURNING id, total, price, created_at, updated_at", p.Title, p.Price, p.ID).Scan(&updatedProduct.ID, &updatedProduct.Title, &updatedProduct.Price, &updatedProduct.CreatedAt, &updatedProduct.UpdatedAt)
 	if err != nil {
@@ -43,7 +43,7 @@ func (r *PostgresRepo) Save(ctx context.Context, qe database.DBQE, p *model.Prod
 	return &updatedProduct, nil
 }
 
-func (r *PostgresRepo) GetByID(ctx context.Context, qe database.DBQE, productID uuid.UUID) (*model.Product, error) {
+func (r *PostgresRepo) GetByID(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID) (*model.Product, error) {
 	var p model.Product
 
 	err := qe.QueryRow(ctx,
@@ -58,7 +58,7 @@ func (r *PostgresRepo) GetByID(ctx context.Context, qe database.DBQE, productID 
 	return &p, nil
 }
 
-func (r *PostgresRepo) GetAll(ctx context.Context, qe database.DBQE, q api.PageQuery) ([]*model.Product, *api.Page, error) {
+func (r *PostgresRepo) GetAll(ctx context.Context, qe database.QueryExecutor, q api.PageQuery) ([]*model.Product, *api.Page, error) {
 	offset := (q.Page - 1) * q.Limit
 	rows, err := qe.Query(ctx,
 		`SELECT id, title, price, created_at, updated_at FROM products LIMIT $1 OFFSET $2`, q.Limit, offset)

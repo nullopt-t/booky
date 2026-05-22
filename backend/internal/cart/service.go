@@ -19,7 +19,7 @@ func NewService(tx database.Runner, cartRepo CartRepository, productRepo Product
 	return &Service{tx, cartRepo, productRepo}
 }
 
-func (s *Service) getOrCreateCart(ctx context.Context, qe database.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (s *Service) getOrCreateCart(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) (*model.Cart, error) {
 	cart, err := s.cartRepo.GetByUserID(ctx, qe, userID)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
@@ -30,7 +30,7 @@ func (s *Service) getOrCreateCart(ctx context.Context, qe database.DBQE, userID 
 	return cart, nil
 }
 
-func (s *Service) addOrUpdateItem(ctx context.Context, qe database.DBQE, cart *model.Cart, req AddCartItemRequest) error {
+func (s *Service) addOrUpdateItem(ctx context.Context, qe database.QueryExecutor, cart *model.Cart, req AddCartItemRequest) error {
 	found := false
 	for i, item := range cart.Items {
 		if item.ProductID == req.ProductID {
@@ -81,7 +81,7 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 
 	var cart *model.Cart
 
-	err := s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	err := s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 
 		c, err := s.getOrCreateCart(ctx, tx, userID)
 		if err != nil {
@@ -100,7 +100,7 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 }
 
 func (s *Service) EmptyCart(ctx context.Context, userID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 		return s.cartRepo.Empty(ctx, tx, userID)
 	})
 }

@@ -14,7 +14,7 @@ func NewPostgresRepository() InventoryRepository {
 	return &Repository{}
 }
 
-func (r *Repository) Reserve(ctx context.Context, qe database.DBQE, productID uuid.UUID, quantity int) error {
+func (r *Repository) Reserve(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID, quantity int) error {
 	var available_quantity int
 	err := qe.QueryRow(ctx, "SELECT available_quantity FROM inventories WHERE product_id = $1 FOR UPDATE", productID).Scan(&available_quantity)
 	if err != nil {
@@ -30,7 +30,7 @@ func (r *Repository) Reserve(ctx context.Context, qe database.DBQE, productID uu
 	return nil
 }
 
-func (r *Repository) Release(ctx context.Context, qe database.DBQE, productID uuid.UUID, quantity int) error {
+func (r *Repository) Release(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID, quantity int) error {
 	var reserved_quantity int
 	err := qe.QueryRow(ctx, "SELECT reserved_quantity FROM inventories WHERE product_id = $1 FOR UPDATE", productID).Scan(&reserved_quantity)
 	if err != nil {
@@ -46,7 +46,7 @@ func (r *Repository) Release(ctx context.Context, qe database.DBQE, productID uu
 	return nil
 }
 
-func (r *Repository) GetAvailable(ctx context.Context, qe database.DBQE, productID uuid.UUID) (int, error) {
+func (r *Repository) GetAvailable(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID) (int, error) {
 	var available_quantity int
 	err := qe.QueryRow(ctx, "SELECT available_quantity FROM inventories WHERE product_id = $1 ", productID).Scan(&available_quantity)
 	if err != nil {
@@ -55,7 +55,7 @@ func (r *Repository) GetAvailable(ctx context.Context, qe database.DBQE, product
 	return available_quantity, nil
 }
 
-func (r *Repository) GetReserved(ctx context.Context, qe database.DBQE, productID uuid.UUID) (int, error) {
+func (r *Repository) GetReserved(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID) (int, error) {
 	var reserved_quantity int
 	err := qe.QueryRow(ctx, "SELECT reserved_quantity FROM inventories WHERE product_id = $1 ", productID).Scan(&reserved_quantity)
 	if err != nil {

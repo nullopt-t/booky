@@ -11,14 +11,14 @@ import (
 )
 
 type Service struct {
-	tx            *database.TxRunner
+	tx            database.Runner
 	orderRepo     OrderRepository
 	cartRepo      CartRepository
 	productRepo   ProductRepository
 	inventoryRepo InventoryRepository
 }
 
-func NewService(tx *database.TxRunner, order OrderRepository, cart CartRepository, product ProductRepository, inventory InventoryRepository) CheckoutService {
+func NewService(tx database.Runner, order OrderRepository, cart CartRepository, product ProductRepository, inventory InventoryRepository) CheckoutService {
 	return &Service{
 		tx:            tx,
 		orderRepo:     order,
@@ -29,7 +29,7 @@ func NewService(tx *database.TxRunner, order OrderRepository, cart CartRepositor
 }
 
 func (s *Service) Checkout(ctx context.Context, userID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 		cart, err := s.cartRepo.GetByUserID(ctx, tx, userID)
 		if err != nil {
 			logger.Log(logger.ERROR, err.Error())

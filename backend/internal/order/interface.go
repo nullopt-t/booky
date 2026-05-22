@@ -11,15 +11,15 @@ import (
 )
 
 type OrderRepository interface {
-	Create(ctx context.Context, db database.DBQE, order model.Order) (*model.Order, error)
+	Create(ctx context.Context, db database.QueryExecutor, order model.Order) (*model.Order, error)
 
-	GetByID(ctx context.Context, db database.DBQE, orderID uuid.UUID) (*model.Order, error)
+	GetByID(ctx context.Context, db database.QueryExecutor, orderID uuid.UUID) (*model.Order, error)
 
-	GetAll(ctx context.Context, db database.DBQE, q *api.PageQuery) ([]*model.Order, *api.Page, error)
+	GetAll(ctx context.Context, db database.QueryExecutor, q *api.PageQuery) ([]*model.Order, *api.Page, error)
 
-	TransitionStatus(ctx context.Context, db database.DBQE, orderID uuid.UUID, from, to model.OrderStatus) error
+	TransitionStatus(ctx context.Context, db database.QueryExecutor, orderID uuid.UUID, from, to model.OrderStatus) error
 
-	UpdateTotalPrice(ctx context.Context, db database.DBQE, orderID uuid.UUID, total int) error
+	UpdateTotalPrice(ctx context.Context, db database.QueryExecutor, orderID uuid.UUID, total int) error
 }
 
 type OrderService interface {

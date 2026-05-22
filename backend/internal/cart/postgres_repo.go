@@ -14,7 +14,7 @@ func NewPostgresRepository() CartRepository {
 	return &PostgresRepository{}
 }
 
-func (r *PostgresRepository) Create(ctx context.Context, qe database.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (r *PostgresRepository) Create(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) (*model.Cart, error) {
 	var cart model.Cart
 	err := qe.QueryRow(ctx,
 		`INSERT INTO carts (user_id, created_at, updated_at)
@@ -29,7 +29,7 @@ func (r *PostgresRepository) Create(ctx context.Context, qe database.DBQE, userI
 	return &cart, nil
 }
 
-func (r *PostgresRepository) GetByUserID(ctx context.Context, qe database.DBQE, userID uuid.UUID) (*model.Cart, error) {
+func (r *PostgresRepository) GetByUserID(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) (*model.Cart, error) {
 	var cart model.Cart
 	err := qe.QueryRow(ctx,
 		`SELECT id, user_id, created_at, updated_at FROM carts WHERE user_id=$1`,
@@ -65,7 +65,7 @@ func (r *PostgresRepository) GetByUserID(ctx context.Context, qe database.DBQE, 
 	return &cart, nil
 }
 
-func (r *PostgresRepository) Save(ctx context.Context, qe database.DBQE, cart *model.Cart) error {
+func (r *PostgresRepository) Save(ctx context.Context, qe database.QueryExecutor, cart *model.Cart) error {
 	// 1. Lock cart row (REAL race protection)
 	_, err := qe.Exec(ctx, `
 		SELECT id 
@@ -118,7 +118,7 @@ func (r *PostgresRepository) Save(ctx context.Context, qe database.DBQE, cart *m
 	return nil
 }
 
-func (r *PostgresRepository) Empty(ctx context.Context, qe database.DBQE, userID uuid.UUID) error {
+func (r *PostgresRepository) Empty(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error {
 	_, err := qe.Exec(ctx,
 		`DELETE FROM cart_items WHERE cart_id IN (SELECT id FROM carts WHERE user_id=$1)`,
 		userID,

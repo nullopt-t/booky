@@ -21,7 +21,7 @@ func NewService(tx database.Runner, productRepo ProductRepository, inventoryRepo
 
 func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*model.Product, error) {
 	var createdProduct *model.Product
-	err := s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	err := s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 		var err error
 		createdProduct, err = s.productRepo.Create(ctx, tx, &model.Product{
 			Title: req.Title,
@@ -55,7 +55,7 @@ func (s *Service) Update(ctx context.Context, productID uuid.UUID, req UpdatePro
 	}
 
 	var savedProduct *model.Product
-	err = s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	err = s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 		var err error
 		savedProduct, err = s.productRepo.Save(ctx, tx, existedProduct)
 		if err != nil {

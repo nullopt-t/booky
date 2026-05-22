@@ -9,10 +9,10 @@ import (
 )
 
 type InventoryRepository interface {
-	Reserve(ctx context.Context, qe database.DBQE, productID uuid.UUID, quantity int) error
-	Release(ctx context.Context, qe database.DBQE, roductID uuid.UUID, quantity int) error
-	GetAvailable(ctx context.Context, qe database.DBQE, productID uuid.UUID) (int, error)
-	GetReserved(ctx context.Context, qe database.DBQE, productID uuid.UUID) (int, error)
+	Reserve(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID, quantity int) error
+	Release(ctx context.Context, qe database.QueryExecutor, roductID uuid.UUID, quantity int) error
+	GetAvailable(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, qe database.QueryExecutor, productID uuid.UUID) (int, error)
 }
 
 type InventoryService interface {

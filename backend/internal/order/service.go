@@ -35,13 +35,13 @@ func (s *Service) GetAll(ctx context.Context, q *api.PageQuery) ([]*model.Order,
 }
 
 func (s *Service) Cancel(ctx context.Context, orderID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 		return s.repo.TransitionStatus(ctx, s.tx.DB(), orderID, model.OrderStatusPending, model.OrderStatusCancelled)
 	})
 }
 
 func (s *Service) Confirm(ctx context.Context, orderID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx database.DBQE) error {
+	return s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
 		return s.repo.TransitionStatus(ctx, s.tx.DB(), orderID, model.OrderStatusPending, model.OrderStatusConfirmed)
 	})
 }
