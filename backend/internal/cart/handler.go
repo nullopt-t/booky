@@ -31,11 +31,11 @@ func (h *Handler) GetCart(c *gin.Context) {
 		logger.Log(logger.ERROR, "get cart", logger.LMeta{"error": err})
 		switch {
 		case errors.Is(err, ErrCartNotFound):
-			c.JSON(http.StatusNotFound, api.ApiError{Code: "CART_NOT_FOUND", Message: "cart not found"})
+			c.JSON(http.StatusNotFound, api.Error("CART_NOT_FOUND", "cart not found"))
 		case errors.Is(err, ErrCartAlreadyExist):
-			c.JSON(http.StatusConflict, api.ApiError{Code: "CART_ALREADY_EXISTS", Message: "cart already exists"})
+			c.JSON(http.StatusConflict, api.Error("CART_ALREADY_EXISTS", "cart already exists"))
 		default:
-			c.JSON(http.StatusInternalServerError, api.ApiError{Code: "INTERNAL_ERROR", Message: err.Error()})
+			c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", err.Error()))
 		}
 		return
 	}
@@ -75,11 +75,11 @@ func (h *Handler) AddItem(c *gin.Context) {
 		logger.Log(logger.ERROR, "add item to cart", logger.LMeta{"error": err.Error()})
 		switch {
 		case errors.Is(err, ErrCartNotFound):
-			c.JSON(http.StatusNotFound, api.ApiError{Code: "CART_NOT_FOUND", Message: "cart not found"})
+			c.JSON(http.StatusNotFound, api.Error("CART_NOT_FOUND", "cart not found"))
 		case errors.Is(err, ErrCartAlreadyExist):
-			c.JSON(http.StatusConflict, api.ApiError{Code: "CART_ALREADY_EXISTS", Message: "cart already exists"})
+			c.JSON(http.StatusConflict, api.Error("CART_ALREADY_EXISTS", "cart already exists"))
 		default:
-			c.JSON(http.StatusInternalServerError, api.ApiError{Code: "INTERNAL_ERROR", Message: err.Error()})
+			c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", err.Error()))
 		}
 		return
 	}

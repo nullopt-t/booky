@@ -40,6 +40,9 @@ func (app *App) initHandlers(router *gin.Engine) {
 
 	// inventory
 	inventoryRepo := inventory.NewPostgresRepository()
+	inventoryService := inventory.NewService(txRunner, inventoryRepo)
+	inventoryHandler := inventory.NewInventoryHandler(inventoryService)
+	inventory.MapRoutes(v1, inventoryHandler)
 
 	// product
 	productRepo := product.NewPostgresRepository()

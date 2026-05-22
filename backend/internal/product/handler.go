@@ -31,12 +31,7 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	var query api.PageQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "invalid_request",
-					Message: err.Error(),
-				},
-			})
+			api.Error("invalid_request", err.Error()))
 		return
 	}
 
@@ -51,12 +46,7 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	result, page, err := h.service.GetAll(c.Request.Context(), query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "internal_error",
-					Message: "unexpected behaviour",
-				},
-			})
+			api.Error("invalid_request", err.Error()))
 		return
 	}
 
@@ -86,36 +76,21 @@ func (h *Handler) GetProductByID(c *gin.Context) {
 
 	if err := c.ShouldBindUri(&params); err != nil {
 		c.JSON(http.StatusBadRequest,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "invalid_request",
-					Message: err.Error(),
-				},
-			})
+			api.Error("invalid_request", err.Error()))
 		return
 	}
 
 	productID, err := uuid.Parse(params.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "invalid_request",
-					Message: err.Error(),
-				},
-			})
+			api.Error("invalid_request", err.Error()))
 		return
 	}
 
 	p, err := h.service.GetByID(c.Request.Context(), productID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "internal_error",
-					Message: "unexpected behaviour",
-				},
-			})
+			api.Error("internal_error", "unexpected behaviour"))
 		return
 	}
 
@@ -132,24 +107,14 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	var p CreateProductRequest
 	if err := c.ShouldBindJSON(&p); err != nil {
 		c.JSON(http.StatusInternalServerError,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "invalid_request",
-					Message: err.Error(),
-				},
-			})
+			api.Error("invalid_request", err.Error()))
 		return
 	}
 
 	newProduct, err := h.service.Create(c.Request.Context(), p)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
-			gin.H{
-				"error": api.ApiError{
-					Code:    "internal_error",
-					Message: "unexpected behaviour",
-				},
-			})
+			api.Error("internal_error", "unexpected behaviour"))
 		return
 	}
 
