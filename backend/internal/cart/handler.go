@@ -36,7 +36,7 @@ func (h *Handler) GetCart(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	cart, err := h.service.GetCart(c.Request.Context(), userId)
+	cart, total, err := h.service.GetCart(c.Request.Context(), userId)
 	if err != nil {
 		logger.Log(logger.ERROR, "get cart", logger.LMeta{"error": err})
 		switch {
@@ -62,6 +62,7 @@ func (h *Handler) GetCart(c *gin.Context) {
 	c.JSON(200, gin.H{"data": CartResponse{
 		ID:        cart.ID,
 		Items:     items,
+		Total:     &total,
 		UpdatedAt: cart.UpdatedAt,
 	}})
 }

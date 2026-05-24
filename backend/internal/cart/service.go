@@ -55,26 +55,28 @@ func (s *Service) addOrUpdateItem(ctx context.Context, qe database.QueryExecutor
 	return nil
 }
 
-func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, error) {
+func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, int, error) {
+	var total int
 	cart, err := s.getOrCreateCart(ctx, s.tx.DB(), userID)
 	if err != nil {
 		if errors.Is(err, database.ErrConflict) {
-			return nil, ErrCartAlreadyExist
+			return nil, total, ErrCartAlreadyExist
 		}
-		return nil, err
+		return nil, total, err
 	}
 
 	for _, item := range cart.Items {
-		_, err := s.productRepo.GetByID(ctx, s.tx.DB(), item.ProductID)
+		p, err := s.productRepo.GetByID(ctx, s.tx.DB(), item.ProductID)
 		if err != nil {
 			if errors.Is(err, database.ErrNotFound) {
-				return nil, ErrProductNotFound
+				return nil, total, ErrProductNotFound
 			}
-			return nil, err
+			return nil, total, err
 		}
+		total += p.Price * item.Quantity
 	}
 
-	return cart, nil
+	return cart, total, nil
 }
 
 func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItemRequest) (*model.Cart, error) {

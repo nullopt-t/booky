@@ -18,6 +18,7 @@ type CartItemResponse struct {
 
 type CartResponse struct {
 	ID        uuid.UUID          `json:"id"`
+	Total     *int               `json:"total,omitempty"`
 	Items     []CartItemResponse `json:"items"`
 	UpdatedAt time.Time          `json:"updated_at"`
 }
