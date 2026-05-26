@@ -3,6 +3,8 @@ package product
 import (
 	"booky-backend/internal/model"
 	"booky-backend/pkg/api"
+	"booky-backend/pkg/database"
+	"booky-backend/pkg/logger"
 	"context"
 	"net/http"
 
@@ -15,6 +17,8 @@ type ProudctService interface {
 	Update(ctx context.Context, productID uuid.UUID, req UpdateProductRequest) (*model.Product, error)
 	GetByID(ctx context.Context, productID uuid.UUID) (*model.Product, error)
 	GetAll(ctx context.Context, q api.PageQuery) ([]*model.Product, *api.Page, error)
+	CreateCategory(ctx context.Context, name string) (*model.ProductCategory, error)
+	GetAllCategories(ctx context.Context, q* api.PageQuery) ([]*model.ProductCategory, *api.Page, error)
 }
 
 type Handler struct {
@@ -133,5 +137,72 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		Price:     newProduct.Price,
 		CreatedAt: newProduct.CreatedAt,
 		UpdatedAt: newProduct.UpdatedAt,
+	})
+}
+
+func (h *Handler) CreateCategory(c *gin.Context) {
+	var req CreateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, api.Error("BAD_REQUEST", err.Error()))
+		return
+	}
+	category, err := h.service.CreateCategory(c.Request.Context(), req.Name)
+	if err != nil {
+		logger.Log(logger.ERROR, "get cart", logger.LMeta{"error": err})
+		switch err {
+		case context.Canceled:
+			c.JSON(http.StatusRequestTimeout, api.Error("CANCELED", err.Error()))
+		case database.ErrNotFound:
+			c.JSON(http.StatusRequestTimeout, api.Error("NOT_FOUND", err.Error()))
+		case database.ErrConflict:
+			c.JSON(http.StatusRequestTimeout, api.Error("CONFLICT", err.Error()))
+		default:
+			c.JSON(http.StatusRequestTimeout, api.Error("INTERNAL_ERROR", err.Error()))
+		}
+		return
+	}
+	c.JSON(http.StatusCreated, CategoryResponse{
+		ID:        category.ID,
+		Name:      category.Name,
+		CreatedAt: category.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: category.UpdatedAt.Format("2006-01-02 15:04:05"),
+	})
+}
+
+func (h *Handler) GetAllCategories(c *gin.Context) {
+	var req api.PageQuery
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, api.Error("BAD_REQUEST", err.Error()))
+		return
+	}
+	categories, page, err := h.service.GetAllCategories(c.Request.Context(), &req)
+	if err != nil {
+		switch err {
+		case context.Canceled:
+			c.JSON(http.StatusRequestTimeout, api.Error("CANCELED", err.Error()))
+		case database.ErrNotFound:
+			c.JSON(http.StatusRequestTimeout, api.Error("NOT_FOUND", err.Error()))
+		case database.ErrConflict:
+			c.JSON(http.StatusRequestTimeout, api.Error("CONFLICT", err.Error()))
+		default:
+			c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", err.Error()))
+		}
+		return
+	}
+
+	var categoriesResponse []CategoryResponse
+	for _, category := range categories {
+		categoriesResponse = append(categoriesResponse, CategoryResponse{
+			ID:        category.ID,
+			Name:      category.Name,
+			CreatedAt: category.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt: category.UpdatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+	c.JSON(http.StatusOK, CategoriesResponse{
+		Categories: categoriesResponse,
+		Page:       page.Index,
+		PageSize:   page.Limit,
+		Total:      page.Total,
 	})
 }

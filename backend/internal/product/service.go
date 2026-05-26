@@ -20,7 +20,7 @@ type Service struct {
 	inventoryRepo InventoryRepository
 }
 
-func NewService(dbExecuter database.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
+func NewService(dbExecuter database.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) *Service {
 	return &Service{dbExecuter, productRepo, inventoryRepo}
 }
 
@@ -106,4 +106,31 @@ func (s *Service) GetByID(ctx context.Context, productID uuid.UUID) (*model.Prod
 		return nil, err
 	}
 	return product, nil
+}
+
+func (s *Service) CreateCategory(ctx context.Context, name string) (*model.ProductCategory, error) {
+	var category *model.ProductCategory
+	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		var err error
+		category, err = s.productRepo.CreateCategory(ctx, db, name)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return category, nil
+}
+
+func (s *Service) GetAllCategories(ctx context.Context, q *api.PageQuery) ([]*model.ProductCategory, *api.Page, error) {
+	var categories []*model.ProductCategory
+	var page *api.Page
+	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		var err error
+		categories, page, err = s.productRepo.GetAllCategories(ctx, db, q)
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return categories, page, nil
 }

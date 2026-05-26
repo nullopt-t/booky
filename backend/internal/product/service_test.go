@@ -14,10 +14,12 @@ import (
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 type MockProductRepository struct {
-	CreateFn  func(ctx context.Context, db database.QueryExecutor, product *model.Product) (*model.Product, error)
-	SaveFn    func(ctx context.Context, db database.QueryExecutor, product *model.Product) (*model.Product, error)
-	GetByIDFn func(ctx context.Context, db database.QueryExecutor, id uuid.UUID) (*model.Product, error)
-	GetAllFn  func(ctx context.Context, db database.QueryExecutor, q api.PageQuery) ([]*model.Product, *api.Page, error)
+	CreateFn           func(ctx context.Context, db database.QueryExecutor, product *model.Product) (*model.Product, error)
+	SaveFn             func(ctx context.Context, db database.QueryExecutor, product *model.Product) (*model.Product, error)
+	GetByIDFn          func(ctx context.Context, db database.QueryExecutor, id uuid.UUID) (*model.Product, error)
+	GetAllFn           func(ctx context.Context, db database.QueryExecutor, q api.PageQuery) ([]*model.Product, *api.Page, error)
+	CreateCategoryFn   func(ctx context.Context, db database.QueryExecutor, name string) (*model.ProductCategory, error)
+	GetAllCategoriesFn func(ctx context.Context, db database.QueryExecutor, q *api.PageQuery) ([]*model.ProductCategory, *api.Page, error)
 }
 
 func (m *MockProductRepository) Create(ctx context.Context, db database.QueryExecutor, product *model.Product) (*model.Product, error) {
@@ -43,6 +45,18 @@ func (m *MockProductRepository) GetAll(ctx context.Context, db database.QueryExe
 		panic("GetAllFn is not set")
 	}
 	return m.GetAllFn(ctx, db, q)
+}
+func (m *MockProductRepository) CreateCategory(ctx context.Context, db database.QueryExecutor, name string) (*model.ProductCategory, error) {
+	if m.CreateCategoryFn == nil {
+		panic("CreateCategoryFn is not set")
+	}
+	return m.CreateCategoryFn(ctx, db, name)
+}
+func (m *MockProductRepository) GetAllCategories(ctx context.Context, db database.QueryExecutor, q *api.PageQuery) ([]*model.ProductCategory, *api.Page, error) {
+	if m.GetAllCategoriesFn == nil {
+		panic("GetAllCategoriesFn is not set")
+	}
+	return m.GetAllCategoriesFn(ctx, db, q)
 }
 
 type MockInventoryRepository struct{}
