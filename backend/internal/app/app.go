@@ -5,7 +5,6 @@ import (
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/inventory"
 	"booky-backend/internal/product"
-	"booky-backend/internal/product/category"
 	"booky-backend/pkg/logger"
 
 	// "booky-backend/internal/checkout"
@@ -52,13 +51,6 @@ func (app *App) initHandlers(router *gin.Engine) {
 	productHandler := product.NewHandler(productService)
 	productRouter := product.NewRouter(productHandler)
 	productRouter.MapRoutes(v1.Group("/products"))
-
-	// category
-	categoryRepo := category.NewPostgresRepository()
-	categoryService := category.NewService(txRunner, categoryRepo)
-	categoryHandler := category.NewHandler(categoryService)
-	categoryRouter := category.NewRouter(categoryHandler)
-	categoryRouter.MapRoutes(v1.Group("/products/categories"))
 
 	// cart
 	cartRepo := cart.NewPostgresRepository()
