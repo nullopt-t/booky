@@ -5,6 +5,7 @@ import (
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/inventory"
 	"booky-backend/internal/product"
+	"booky-backend/internal/user"
 	"booky-backend/pkg/logger"
 
 	// "booky-backend/internal/checkout"
@@ -37,6 +38,13 @@ func (app *App) initHandlers(router *gin.Engine) {
 	swagger.SetUpDocs(v1)
 
 	txRunner := database.NewTxRunner(app.db)
+
+	// user
+	userRepo := user.NewPostgresRepository()
+	userService := user.NewService(txRunner, userRepo)
+	userHandler := user.NewHandler(userService)
+	userRouter := user.NewRouter(userHandler)
+	userRouter.MapRoutes(v1.Group("/users"))
 
 	// inventory
 	inventoryRepo := inventory.NewPostgresRepository()
