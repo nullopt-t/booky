@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // PaymentStatus represents the status of a payment
 type PaymentStatus string
@@ -20,13 +24,11 @@ const (
 
 // Payment represents a payment record
 type Payment struct {
-	ID             string
-	OrderID        string
-	Amount         int
-	Status         PaymentStatus
-	IdempotencyKey string
-	Provider       string
-	ProviderRef    string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Type      string
+	Provider  string
+	Token     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

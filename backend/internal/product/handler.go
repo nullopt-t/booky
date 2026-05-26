@@ -1,12 +1,21 @@
 package product
 
 import (
+	"booky-backend/internal/model"
 	"booky-backend/pkg/api"
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+type ProudctService interface {
+	Create(ctx context.Context, req CreateProductRequest) (*model.Product, error)
+	Update(ctx context.Context, productID uuid.UUID, req UpdateProductRequest) (*model.Product, error)
+	GetByID(ctx context.Context, productID uuid.UUID) (*model.Product, error)
+	GetAll(ctx context.Context, q api.PageQuery) ([]*model.Product, *api.Page, error)
+}
 
 type Handler struct {
 	service ProudctService

@@ -2,8 +2,22 @@ package inventory
 
 import "github.com/gin-gonic/gin"
 
-func MapRoutes(r *gin.RouterGroup, h InventoryHandler) {
-	rg := r.Group("/inventories")
-	rg.GET("/:product_id/available", h.GetAvailable)
-	rg.GET("/:product_id/reserved", h.GetReserved)
+type InventoryHandler interface {
+	GetAvailable(c *gin.Context)
+	GetReserved(c *gin.Context)
+}
+
+type Router struct {
+	handler InventoryHandler
+}
+
+func NewRouter(handler InventoryHandler) *Router {
+	return &Router{
+		handler: handler,
+	}
+}
+
+func (r *Router) MapRoutes(group *gin.RouterGroup) {
+	group.GET("/:product_id/available", r.handler.GetAvailable)
+	group.GET("/:product_id/reserved", r.handler.GetReserved)
 }

@@ -2,11 +2,17 @@ package inventory
 
 import (
 	"booky-backend/pkg/api"
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+type InventoryService interface {
+	GetAvailable(ctx context.Context, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, productID uuid.UUID) (int, error)
+}
 
 type Handler struct {
 	service InventoryService

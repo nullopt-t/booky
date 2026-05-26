@@ -78,17 +78,6 @@ func (r *PostgresRepository) Save(ctx context.Context, qe database.QueryExecutor
 		return database.MapError(err)
 	}
 
-	// 2. Update cart timestamp
-	_, err = qe.Exec(ctx, `
-		UPDATE carts 
-		SET updated_at = now()
-		WHERE id = $1
-	`, cart.ID)
-
-	if err != nil {
-		return database.MapError(err)
-	}
-
 	// 3. Delete old items (safe because locked)
 	_, err = qe.Exec(ctx, `
 		DELETE FROM cart_items 

@@ -13,3 +13,10 @@ type Product struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+type ProductCategory struct {
+	ID        uuid.UUID
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}

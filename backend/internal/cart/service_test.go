@@ -44,7 +44,7 @@ func (m *MockCartRepository) Save(ctx context.Context, db database.QueryExecutor
 
 type MockRunner struct {
 	WithTxFn func(ctx context.Context, fn func(tx database.QueryExecutor) error) error
-	DBFn     func() database.QueryExecutor
+	WithDBFn func(ctx context.Context, fn func(pool database.QueryExecutor) error) error
 }
 
 func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.QueryExecutor) error) error {
@@ -53,11 +53,11 @@ func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.QueryExecut
 	}
 	return m.WithTxFn(ctx, fn)
 }
-func (m *MockRunner) DB() database.QueryExecutor {
-	if m.DBFn == nil {
-		panic("DBFn is not set")
+func (m *MockRunner) WithDB(ctx context.Context, fn func(pool database.QueryExecutor) error) error {
+	if m.WithDBFn == nil {
+		panic("WithDBFn is not set")
 	}
-	return m.DBFn()
+	return m.WithDBFn(ctx, fn)
 }
 
 type MockProductRepository struct {
@@ -74,7 +74,7 @@ func (m *MockProductRepository) GetByID(ctx context.Context, db database.QueryEx
 func execTx(ctx context.Context, fn func(tx database.QueryExecutor) error) error { return fn(nil) }
 
 func TestGetCart(t *testing.T) {
-	runner := &MockRunner{DBFn: func() database.QueryExecutor { return nil }}
+	runner := &MockRunner{WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: returns items and correct total", func(t *testing.T) {
 		p1, p2 := uuid.New(), uuid.New()
@@ -199,7 +199,7 @@ func TestAddItem(t *testing.T) {
 		}
 
 		if _, err := NewService(runner, repo, nil).AddItem(context.Background(), uuid.New(), AddCartItemRequest{
-			ProductID: uuid.New(), Quantity: 1,
+			ItemID: uuid.New(), Quantity: 1,
 		}); err != nil {
 			t.Fatal("unexpected error:", err)
 		}
@@ -223,7 +223,7 @@ func TestAddItem(t *testing.T) {
 		}
 
 		if _, err := NewService(runner, repo, nil).AddItem(context.Background(), uuid.New(), AddCartItemRequest{
-			ProductID: productID, Quantity: 1,
+			ItemID: productID, Quantity: 1,
 		}); err != nil {
 			t.Fatal("unexpected error:", err)
 		}
@@ -240,7 +240,7 @@ func TestAddItem(t *testing.T) {
 		}
 
 		if _, err := NewService(runner, repo, nil).AddItem(context.Background(), uuid.New(), AddCartItemRequest{
-			ProductID: uuid.New(), Quantity: 1,
+			ItemID: uuid.New(), Quantity: 1,
 		}); err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -257,7 +257,7 @@ func TestAddItem(t *testing.T) {
 		}
 
 		if _, err := NewService(runner, repo, nil).AddItem(context.Background(), uuid.New(), AddCartItemRequest{
-			ProductID: uuid.New(), Quantity: 1,
+			ItemID: uuid.New(), Quantity: 1,
 		}); err == nil {
 			t.Fatal("expected error, got nil")
 		}

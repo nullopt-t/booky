@@ -4,9 +4,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func MapRoutes(r *gin.RouterGroup, handler CartHandler) {
-	rg := r.Group("/carts")
-	rg.GET("", handler.GetCart)
-	rg.POST("/items", handler.AddItem)
-	rg.DELETE("", handler.EmptyCart)
+type CartHandler interface {
+	GetCart(c *gin.Context)
+	AddItem(c *gin.Context)
+	EmptyCart(c *gin.Context)
+}
+
+type Router struct {
+	handler CartHandler
+}
+
+func NewRouter(handler CartHandler) *Router {
+	return &Router{
+		handler: handler,
+	}
+}
+
+func (r *Router) MapRoutes(group *gin.RouterGroup) {
+	group.GET("", r.handler.GetCart)
+	group.POST("/items", r.handler.AddItem)
+	group.DELETE("", r.handler.EmptyCart)
 }

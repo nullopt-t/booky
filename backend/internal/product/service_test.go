@@ -49,7 +49,7 @@ type MockInventoryRepository struct{}
 
 type MockRunner struct {
 	WithTxFn func(ctx context.Context, fn func(tx database.QueryExecutor) error) error
-	DBFn     func() database.QueryExecutor
+	WithDBFn func(ctx context.Context, fn func(pool database.QueryExecutor) error) error
 }
 
 func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.QueryExecutor) error) error {
@@ -58,11 +58,11 @@ func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.QueryExecut
 	}
 	return m.WithTxFn(ctx, fn)
 }
-func (m *MockRunner) DB() database.QueryExecutor {
-	if m.DBFn == nil {
-		panic("DBFn is not set")
+func (m *MockRunner) WithDB(ctx context.Context, fn func(pool database.QueryExecutor) error) error {
+	if m.WithDBFn == nil {
+		panic("WithDBFn is not set")
 	}
-	return m.DBFn()
+	return m.WithDBFn(ctx, fn)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ func TestCreate(t *testing.T) {
 // ── TestUpdate ────────────────────────────────────────────────────────────────
 
 func TestUpdate(t *testing.T) {
-	runner := &MockRunner{WithTxFn: execTx, DBFn: noDB}
+	runner := &MockRunner{WithTxFn: execTx, WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	existingProduct := &model.Product{ID: uuid.New(), Title: "Old Title", Price: 50}
 
@@ -195,7 +195,7 @@ func TestUpdate(t *testing.T) {
 // ── TestGetAll ────────────────────────────────────────────────────────────────
 
 func TestGetAll(t *testing.T) {
-	runner := &MockRunner{DBFn: noDB}
+	runner := &MockRunner{WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: returns products and page", func(t *testing.T) {
 		products := []*model.Product{{ID: uuid.New()}, {ID: uuid.New()}}
@@ -231,7 +231,7 @@ func TestGetAll(t *testing.T) {
 // ── TestGetByID ───────────────────────────────────────────────────────────────
 
 func TestGetByID(t *testing.T) {
-	runner := &MockRunner{DBFn: noDB}
+	runner := &MockRunner{WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: returns product", func(t *testing.T) {
 		productID := uuid.New()

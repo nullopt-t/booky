@@ -5,6 +5,7 @@ import (
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/inventory"
 	"booky-backend/internal/product"
+	"booky-backend/internal/product/category"
 	"booky-backend/pkg/logger"
 
 	// "booky-backend/internal/checkout"
@@ -42,25 +43,36 @@ func (app *App) initHandlers(router *gin.Engine) {
 	inventoryRepo := inventory.NewPostgresRepository()
 	inventoryService := inventory.NewService(txRunner, inventoryRepo)
 	inventoryHandler := inventory.NewHandler(inventoryService)
-	inventory.MapRoutes(v1, inventoryHandler)
+	inventoryRouter := inventory.NewRouter(inventoryHandler)
+	inventoryRouter.MapRoutes(v1.Group("/inventories"))
 
 	// product
 	productRepo := product.NewPostgresRepository()
 	productService := product.NewService(txRunner, productRepo, inventoryRepo)
 	productHandler := product.NewHandler(productService)
-	product.MapRoutes(v1, productHandler)
+	productRouter := product.NewRouter(productHandler)
+	productRouter.MapRoutes(v1.Group("/products"))
+
+	// category
+	categoryRepo := category.NewPostgresRepository()
+	categoryService := category.NewService(txRunner, categoryRepo)
+	categoryHandler := category.NewHandler(categoryService)
+	categoryRouter := category.NewRouter(categoryHandler)
+	categoryRouter.MapRoutes(v1.Group("/products/categories"))
 
 	// cart
 	cartRepo := cart.NewPostgresRepository()
 	cartService := cart.NewService(txRunner, cartRepo, productRepo)
 	cartHandler := cart.NewHandler(cartService)
-	cart.MapRoutes(v1, cartHandler)
+	cartRouter := cart.NewRouter(cartHandler)
+	cartRouter.MapRoutes(v1.Group("/carts"))
 
 	// order
 	orderRepo := order.NewPostgresRepository()
 	orderService := order.NewService(txRunner, orderRepo)
 	orderHandler := order.NewHandler(orderService)
-	order.MapRoutes(v1, orderHandler)
+	orderRouter := order.NewRouter(orderHandler)
+	orderRouter.MapRoutes(v1.Group("/orders"))
 
 	// // checkout
 	// checkoutService := checkout.NewService(app.db.GetPool(), orderRepo, cartRepo)

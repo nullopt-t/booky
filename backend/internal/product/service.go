@@ -9,19 +9,24 @@ import (
 	"github.com/google/uuid"
 )
 
+type InventoryRepository interface {
+	GetAvailable(ctx context.Context, db database.QueryExecutor, productID uuid.UUID) (int, error)
+	GetReserved(ctx context.Context, db database.QueryExecutor, productID uuid.UUID) (int, error)
+}
+
 type Service struct {
-	tx            database.Runner
+	dbExecuter    database.Runner
 	productRepo   ProductRepository
 	inventoryRepo InventoryRepository
 }
 
-func NewService(tx database.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
-	return &Service{tx, productRepo, inventoryRepo}
+func NewService(dbExecuter database.Runner, productRepo ProductRepository, inventoryRepo InventoryRepository) ProudctService {
+	return &Service{dbExecuter, productRepo, inventoryRepo}
 }
 
 func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*model.Product, error) {
 	var createdProduct *model.Product
-	err := s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
+	err := s.dbExecuter.WithTx(ctx, func(tx database.QueryExecutor) error {
 		var err error
 		createdProduct, err = s.productRepo.Create(ctx, tx, &model.Product{
 			Title: req.Title,
@@ -41,7 +46,12 @@ func (s *Service) Create(ctx context.Context, req CreateProductRequest) (*model.
 }
 
 func (s *Service) Update(ctx context.Context, productID uuid.UUID, req UpdateProductRequest) (*model.Product, error) {
-	existedProduct, err := s.productRepo.GetByID(ctx, s.tx.DB(), productID)
+	var existedProduct *model.Product
+	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		var err error
+		existedProduct, err = s.productRepo.GetByID(ctx, db, productID)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +65,7 @@ func (s *Service) Update(ctx context.Context, productID uuid.UUID, req UpdatePro
 	}
 
 	var savedProduct *model.Product
-	err = s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
+	err = s.dbExecuter.WithTx(ctx, func(tx database.QueryExecutor) error {
 		var err error
 		savedProduct, err = s.productRepo.Save(ctx, tx, existedProduct)
 		if err != nil {
@@ -72,9 +82,28 @@ func (s *Service) Update(ctx context.Context, productID uuid.UUID, req UpdatePro
 }
 
 func (s *Service) GetAll(ctx context.Context, q api.PageQuery) ([]*model.Product, *api.Page, error) {
-	return s.productRepo.GetAll(ctx, s.tx.DB(), q)
+	var products []*model.Product
+	var page *api.Page
+	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		var err error
+		products, page, err = s.productRepo.GetAll(ctx, db, q)
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return products, page, nil
 }
 
 func (s *Service) GetByID(ctx context.Context, productID uuid.UUID) (*model.Product, error) {
-	return s.productRepo.GetByID(ctx, s.tx.DB(), productID)
+	var product *model.Product
+	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		var err error
+		product, err = s.productRepo.GetByID(ctx, db, productID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return product, nil
 }

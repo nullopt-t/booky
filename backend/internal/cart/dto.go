@@ -7,13 +7,13 @@ import (
 )
 
 type AddCartItemRequest struct {
-	ProductID uuid.UUID `json:"product_id"`
-	Quantity  int       `json:"quantity"`
+	ItemID   uuid.UUID `json:"item_id"`
+	Quantity int       `json:"quantity"`
 }
 
 type CartItemResponse struct {
-	ProductID uuid.UUID `json:"product_id"`
-	Quantity  int       `json:"quantity"`
+	ItemID   uuid.UUID `json:"item_id"`
+	Quantity int       `json:"quantity"`
 }
 
 type CartResponse struct {

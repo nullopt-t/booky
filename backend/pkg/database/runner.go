@@ -6,18 +6,18 @@ import (
 
 type Runner interface {
 	WithTx(ctx context.Context, fn func(tx QueryExecutor) error) error
-	DB() QueryExecutor
+	WithDB(ctx context.Context, fn func(db QueryExecutor) error) error
 }
 
-type TxRunner struct {
+type Executer struct {
 	db *DB
 }
 
-func NewTxRunner(db *DB) *TxRunner {
-	return &TxRunner{db: db}
+func NewTxRunner(db *DB) *Executer {
+	return &Executer{db: db}
 }
 
-func (t *TxRunner) WithTx(ctx context.Context, fn func(tx QueryExecutor) error) error {
+func (t *Executer) WithTx(ctx context.Context, fn func(tx QueryExecutor) error) error {
 	tx, err := t.db.Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -34,6 +34,6 @@ func (t *TxRunner) WithTx(ctx context.Context, fn func(tx QueryExecutor) error) 
 	return tx.Commit(ctx)
 }
 
-func (t *TxRunner) DB() QueryExecutor {
-	return t.db
+func (t *Executer) WithDB(ctx context.Context, fn func(pool QueryExecutor) error) error {
+	return fn(t.db)
 }

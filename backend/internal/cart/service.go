@@ -9,8 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type ProductRepository interface {
+	GetByID(ctx context.Context, db database.QueryExecutor, productID uuid.UUID) (*model.Product, error)
+}
+type CartRepository interface {
+	Create(ctx context.Context, db database.QueryExecutor, userID uuid.UUID) (*model.Cart, error)
+	GetByUserID(ctx context.Context, db database.QueryExecutor, userID uuid.UUID) (*model.Cart, error)
+	Empty(ctx context.Context, db database.QueryExecutor, userID uuid.UUID) error
+	Save(ctx context.Context, db database.QueryExecutor, cart *model.Cart) error
+}
 type Service struct {
-	tx          database.Runner
+	dbExecutor  database.Runner
 	cartRepo    CartRepository
 	productRepo ProductRepository
 }
@@ -33,7 +42,7 @@ func (s *Service) getOrCreateCart(ctx context.Context, qe database.QueryExecutor
 func (s *Service) addOrUpdateItem(ctx context.Context, qe database.QueryExecutor, cart *model.Cart, req AddCartItemRequest) error {
 	found := false
 	for i, item := range cart.Items {
-		if item.ProductID == req.ProductID {
+		if item.ProductID.String() == req.ItemID.String() {
 			cart.Items[i].Quantity += req.Quantity
 			found = true
 			break
@@ -41,15 +50,12 @@ func (s *Service) addOrUpdateItem(ctx context.Context, qe database.QueryExecutor
 	}
 	if !found {
 		cart.Items = append(cart.Items, model.CartItem{
-			ProductID: req.ProductID,
+			ProductID: req.ItemID,
 			Quantity:  req.Quantity,
 		})
 	}
 
 	if err := s.cartRepo.Save(ctx, qe, cart); err != nil {
-		if errors.Is(err, database.ErrNotFound) {
-			return ErrCartNotFound
-		}
 		return err
 	}
 	return nil
@@ -57,25 +63,25 @@ func (s *Service) addOrUpdateItem(ctx context.Context, qe database.QueryExecutor
 
 func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*model.Cart, int, error) {
 	var total int
-	cart, err := s.getOrCreateCart(ctx, s.tx.DB(), userID)
-	if err != nil {
-		if errors.Is(err, database.ErrConflict) {
-			return nil, total, ErrCartAlreadyExist
-		}
-		return nil, total, err
-	}
-
-	for _, item := range cart.Items {
-		p, err := s.productRepo.GetByID(ctx, s.tx.DB(), item.ProductID)
+	var cart *model.Cart
+	err := s.dbExecutor.WithDB(ctx, func(db database.QueryExecutor) error {
+		var err error
+		cart, err = s.getOrCreateCart(ctx, db, userID)
 		if err != nil {
-			if errors.Is(err, database.ErrNotFound) {
-				return nil, total, ErrProductNotFound
-			}
-			return nil, total, err
+			return err
 		}
-		total += p.Price * item.Quantity
+		for _, item := range cart.Items {
+			p, err := s.productRepo.GetByID(ctx, db, item.ProductID)
+			if err != nil {
+				return err
+			}
+			total += p.Price * item.Quantity
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
 	}
-
 	return cart, total, nil
 }
 
@@ -83,7 +89,7 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 
 	var cart *model.Cart
 
-	err := s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
+	err := s.dbExecutor.WithTx(ctx, func(tx database.QueryExecutor) error {
 
 		c, err := s.getOrCreateCart(ctx, tx, userID)
 		if err != nil {
@@ -102,7 +108,7 @@ func (s *Service) AddItem(ctx context.Context, userID uuid.UUID, req AddCartItem
 }
 
 func (s *Service) EmptyCart(ctx context.Context, userID uuid.UUID) error {
-	return s.tx.WithTx(ctx, func(tx database.QueryExecutor) error {
+	return s.dbExecutor.WithTx(ctx, func(tx database.QueryExecutor) error {
 		return s.cartRepo.Empty(ctx, tx, userID)
 	})
 }

@@ -54,7 +54,7 @@ func (m *MockOrderRepository) TransitionStatus(ctx context.Context, db database.
 
 type MockRunner struct {
 	WithTxFn func(ctx context.Context, fn func(tx database.QueryExecutor) error) error
-	DBFn     func() database.QueryExecutor
+	WithDBFn func(ctx context.Context, fn func(pool database.QueryExecutor) error) error
 }
 
 func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.QueryExecutor) error) error {
@@ -63,11 +63,11 @@ func (m *MockRunner) WithTx(ctx context.Context, fn func(tx database.QueryExecut
 	}
 	return m.WithTxFn(ctx, fn)
 }
-func (m *MockRunner) DB() database.QueryExecutor {
-	if m.DBFn == nil {
-		panic("DBFn is not set")
+func (m *MockRunner) WithDB(ctx context.Context, fn func(pool database.QueryExecutor) error) error {
+	if m.WithDBFn == nil {
+		panic("WithDBFn is not set")
 	}
-	return m.DBFn()
+	return m.WithDBFn(ctx, fn)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ func noDB() database.QueryExecutor                                          { re
 // ── TestGetByID ───────────────────────────────────────────────────────────────
 
 func TestGetByID(t *testing.T) {
-	runner := &MockRunner{DBFn: noDB}
+	runner := &MockRunner{WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: returns order", func(t *testing.T) {
 		orderID := uuid.New()
@@ -113,7 +113,7 @@ func TestGetByID(t *testing.T) {
 // ── TestGetAll ────────────────────────────────────────────────────────────────
 
 func TestGetAll(t *testing.T) {
-	runner := &MockRunner{DBFn: noDB}
+	runner := &MockRunner{WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: returns orders and page", func(t *testing.T) {
 		orders := []*model.Order{{ID: uuid.New()}, {ID: uuid.New()}}
@@ -151,7 +151,7 @@ func TestGetAll(t *testing.T) {
 func TestCancel(t *testing.T) {
 	// NOTE: Cancel passes s.tx.DB() to TransitionStatus instead of the tx
 	// received from WithTx — this is likely a bug. Tests reflect current behavior.
-	runner := &MockRunner{WithTxFn: execTx, DBFn: noDB}
+	runner := &MockRunner{WithTxFn: execTx, WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: transitions pending → cancelled", func(t *testing.T) {
 		orderID := uuid.New()
@@ -189,7 +189,7 @@ func TestCancel(t *testing.T) {
 
 func TestConfirm(t *testing.T) {
 	// NOTE: same bug as Cancel — uses s.tx.DB() instead of tx inside WithTx.
-	runner := &MockRunner{WithTxFn: execTx, DBFn: noDB}
+	runner := &MockRunner{WithTxFn: execTx, WithDBFn: func(_ context.Context, fn func(pool database.QueryExecutor) error) error { return fn(nil) }}
 
 	t.Run("success: transitions pending → confirmed", func(t *testing.T) {
 		orderID := uuid.New()

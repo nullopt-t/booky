@@ -3,11 +3,19 @@ package order
 import (
 	"booky-backend/internal/model"
 	"booky-backend/pkg/api"
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+type OrderService interface {
+	GetByID(ctx context.Context, orderID uuid.UUID) (*model.Order, error)
+	GetAll(ctx context.Context, q *api.PageQuery) ([]*model.Order, *api.Page, error)
+	Cancel(ctx context.Context, orderID uuid.UUID) error
+	Confirm(ctx context.Context, orderID uuid.UUID) error
+}
 
 type Hanlder struct {
 	service OrderService
