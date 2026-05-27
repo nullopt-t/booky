@@ -1,6 +1,9 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email CITEXT NOT NULL UNIQUE,
+    email CITEXT NOT NULL UNIQUE CHECK (
+        email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+    ),
+    role TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     is_inactive BOOLEAN DEFAULT FALSE,
     failed_login_attempts INT DEFAULT 0,
