@@ -11,8 +11,9 @@ type DatabaseConfig struct {
 }
 
 type Config struct {
-	DBCfg  *DatabaseConfig
-	SvPort string
+	DBCfg        *DatabaseConfig
+	SvPort       string
+	JwtSecretKey string
 }
 
 func Load() *Config {
@@ -24,6 +25,7 @@ func Load() *Config {
 			DBPassword: utils.GetEnvOrDefault("DB_PASSWORD", "bookshop123"),
 			DBName:     utils.GetEnvOrDefault("DB_NAME", "bookshop"),
 		},
-		SvPort: utils.GetEnvOrDefault("PORT", "8080"),
+		SvPort:       utils.GetEnvOrDefault("PORT", "8080"),
+		JwtSecretKey: utils.GetEnvOrDefault("JWT_SECRET", "jwt-secret-key"),
 	}
 }

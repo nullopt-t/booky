@@ -13,6 +13,7 @@ import (
 type UserService interface {
 	CreateUser(ctx context.Context, user CreateUserRequest) (*model.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 	GetAllUsers(ctx context.Context, q *api.PageQuery) ([]*model.User, *api.Page, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, user *UpdateUserRequest) error
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
@@ -54,6 +55,22 @@ func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, e
 	var existedUser model.User
 	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
 		user, err := s.repo.GetUserByID(ctx, db, id)
+		if err != nil {
+			return err
+		}
+		existedUser = *user
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &existedUser, nil
+}
+
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	var existedUser model.User
+	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		user, err := s.repo.GetUserByEmail(ctx, db, email)
 		if err != nil {
 			return err
 		}

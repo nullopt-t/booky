@@ -7,8 +7,8 @@ type Page struct {
 }
 
 type PageQuery struct {
-	Page   int    `form:"page"`
-	Limit  int    `form:"limit"`
+	Page  int `form:"page"`
+	Limit int `form:"limit"`
 	// Search string `form:"search"`
 	// Sort   string `form:"sort"`
 }

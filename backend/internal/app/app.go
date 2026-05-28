@@ -33,7 +33,7 @@ type App struct {
 	db *database.DB
 }
 
-func (app *App) initHandlers(router *gin.Engine) {
+func (app *App) initHandlers(config *config.Config, router *gin.Engine) {
 	v1 := router.Group("/api/v1")
 	swagger.SetUpDocs(v1)
 
@@ -42,9 +42,9 @@ func (app *App) initHandlers(router *gin.Engine) {
 	// user
 	userRepo := user.NewPostgresRepository()
 	userService := user.NewService(txRunner, userRepo)
-	userHandler := user.NewHandler(userService)
-	userRouter := user.NewRouter(userHandler)
-	userRouter.MapRoutes(v1.Group("/users"))
+	userHandler := user.NewHandler(userService, config)
+	userRouter := user.NewRouter(userHandler, config)
+	userRouter.MapRoutes(v1)
 
 	// inventory
 	inventoryRepo := inventory.NewPostgresRepository()
@@ -105,7 +105,7 @@ func (app *App) Run() error {
 	}
 
 	router := gin.Default()
-	app.initHandlers(router)
+	app.initHandlers(cfg, router)
 
 	app.server = &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.SvPort),

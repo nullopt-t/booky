@@ -43,7 +43,8 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, qe database.QueryE
 		&existedUser.FailedLoginAttempts,
 		&existedUser.LockedUntil,
 		&existedUser.CreatedAt,
-		&existedUser.UpdatedAt)
+		&existedUser.UpdatedAt,
+		&existedUser.DeletedAt)
 	if err != nil {
 		return nil, database.MapError(err)
 	}
@@ -59,7 +60,8 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, qe database.Que
 		&existedUser.FailedLoginAttempts,
 		&existedUser.LockedUntil,
 		&existedUser.CreatedAt,
-		&existedUser.UpdatedAt)
+		&existedUser.UpdatedAt,
+		&existedUser.DeletedAt)
 	if err != nil {
 		return nil, database.MapError(err)
 	}

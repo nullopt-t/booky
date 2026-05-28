@@ -4,9 +4,23 @@ import (
 	"github.com/google/uuid"
 )
 
-type CreateUserRequest struct {
+type UserCredentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type CreateUserRequest struct {
+	UserCredentials
+}
+
+type RegisterUserRequest struct {
+	UserCredentials
+}
+
+type RegisterUserResponse struct {
+	Email        string `json:"email,omitempty"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type CreateUserResponse struct {
@@ -43,4 +57,12 @@ type GetAllUsersResponse struct {
 
 type GetUserByEmailRequest struct {
 	Email string `json:"email"`
+}
+
+type RefreshTokenRequest struct {
+	Refresh_token string `json:"refresh_token"`
+}
+
+type RefreshTokenResponse struct {
+	AccessToken string `json:"access_token"`
 }
