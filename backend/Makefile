@@ -1,8 +1,14 @@
 DB_URL=postgres://bookshop:bookshop123@localhost:5432/bookshop?sslmode=disable
 MIGRATIONS=./migrations
 
-hot-reload:
+hot:
 	air -c .air.toml
+	
+run:
+	@go run cmd/api/main.go
+
+build: 
+	@go build -o tmp/bin cmd/api/main.go
 
 all: hot-reload
 
@@ -22,5 +28,5 @@ migrate-reset:
 	migrate -path $(MIGRATIONS) -database "$(DB_URL)" drop -f
 	migrate -path $(MIGRATIONS) -database "$(DB_URL)" up
 
-.PHONY: migrate-new migrate-up migrate-down migrate-drop migrate-reset hot-reload all
+.PHONY: migrate-new migrate-up migrate-down migrate-drop migrate-reset hot all build
 
