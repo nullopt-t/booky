@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -10,24 +12,30 @@ import (
 type TokenType string
 
 const (
-	Access  TokenType = "access"
-	Refresh TokenType = "refresh"
+	AccessTokenType    TokenType = "access"
+	RefreshTokenType   TokenType = "refresh"
+	ResetPassTokenType TokenType = "reset_pass"
 )
 
-const RefreshTokenTTL = 30 * 24 * time.Hour // Month
-const AccessTokenTTL = 15 * time.Minute
+type TokenDuration time.Duration
+
+const (
+	RefreshTokenTTL   TokenDuration = TokenDuration(30 * 24 * time.Hour) // 30 days
+	AccessTokenTTL    TokenDuration = TokenDuration(15 * time.Minute)
+	ResetPassTokenTTL TokenDuration = TokenDuration(15 * time.Minute)
+)
 
 type Claims struct {
 	jwt.RegisteredClaims
 	Type TokenType `json:"type,omitempty"`
 }
 
-func CreateToken(userID, secret string, expireAfter time.Duration, tokenType TokenType) (string, error) {
+func CreateToken(userID, secret string, duration TokenDuration, tokenType TokenType) (string, error) {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expireAfter)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(duration))),
 		},
 		Type: tokenType,
 	}
@@ -56,4 +64,9 @@ func VerifyToken(tokenStr, secret string) (*Claims, error) {
 		return nil, fmt.Errorf("invalid claims type")
 	}
 	return claims, nil
+}
+
+func HashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }

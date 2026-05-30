@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Marlliton/slogpretty"
 )
 
 type LogLevel int
@@ -20,8 +22,12 @@ const (
 
 type LMeta map[string]any
 
-var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-	Level: slog.LevelDebug,
+var logger = slog.New(slogpretty.New(os.Stdout, &slogpretty.Options{
+	Level:      slog.LevelDebug,
+	AddSource:  false,                        // Show file location
+	Colorful:   true,                         // Enable colors. Default is true
+	Multiline:  true,                         // Pretty print for complex data
+	TimeFormat: slogpretty.DefaultTimeFormat, // Custom format (e.g., time.Kitchen)
 }))
 
 type LogContext struct {

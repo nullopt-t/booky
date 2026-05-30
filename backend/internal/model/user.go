@@ -6,10 +6,25 @@ import (
 	"github.com/google/uuid"
 )
 
+type UserRole string
+
+const (
+	CustomerRole UserRole = "customer"
+	AdminRole    UserRole = "admin"
+	VendorRole   UserRole = "vendor"
+)
+
 type User struct {
-	ID                  uuid.UUID
-	Email               string
-	PasswordHash        string
+	ID           uuid.UUID
+	Email        string
+	PasswordHash string
+
+	ResetToken      *string
+	ResetTokenExpireAt  *time.Time
+	LastResetAt         *time.Time
+	FailedResetAttempts int
+
+	Role                UserRole
 	FailedLoginAttempts int
 	LockedUntil         *time.Time
 	IsInactive          bool

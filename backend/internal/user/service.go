@@ -6,9 +6,14 @@ import (
 	"booky-backend/pkg/database"
 	"booky-backend/pkg/utils"
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+const ResetTokenTTL = 15 * time.Minute
 
 type UserService interface {
 	CreateUser(ctx context.Context, user CreateUserRequest) (*model.User, error)
@@ -17,6 +22,12 @@ type UserService interface {
 	GetAllUsers(ctx context.Context, q *api.PageQuery) ([]*model.User, *api.Page, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, user *UpdateUserRequest) error
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
+	CheckPassword(ctx context.Context, userID uuid.UUID, password string) error
+	CheckPasswordResetToken(ctx context.Context, userID uuid.UUID, token string) error
+	UpdatePassword(ctx context.Context, userID uuid.UUID, newPassword string) error
+	SetResetToken(ctx context.Context, userID uuid.UUID, token *string) error
+	IncrementResetAttempts(ctx context.Context, userID uuid.UUID) error
+	LockTokenResetFor(ctx context.Context, userID uuid.UUID, duration time.Duration) error
 }
 
 type Service struct {
@@ -128,4 +139,75 @@ func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Service) CheckPassword(
+	ctx context.Context,
+	userID uuid.UUID,
+	password string,
+) error {
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		user, err := s.repo.GetUserByID(ctx, db, userID)
+		if err != nil {
+			return err
+		}
+
+		if err := utils.ComparePassword(user.PasswordHash, password); err != nil {
+			return fmt.Errorf("passord ain't matching")
+		}
+
+		return nil
+	})
+}
+
+func (s *Service) CheckPasswordResetToken(
+	ctx context.Context,
+	userID uuid.UUID,
+	token string,
+) error {
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		user, err := s.repo.GetUserByID(ctx, db, userID)
+		if err != nil {
+			return err
+		}
+
+		if strings.Compare(*user.ResetToken, token) != 0 {
+			return fmt.Errorf("unknown token")
+		}
+
+		return nil
+	})
+}
+
+func (s *Service) UpdatePassword(
+	ctx context.Context,
+	userID uuid.UUID,
+	newPassword string,
+) error {
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		return s.repo.UpdateUserPasswordHash(ctx, db, userID, hashedPassword)
+	})
+}
+
+func (s *Service) SetResetToken(ctx context.Context, userID uuid.UUID, token *string) error {
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		return s.repo.SetResetToken(ctx, db, userID, token, ResetTokenTTL)
+	})
+}
+
+func (s *Service) IncrementResetAttempts(ctx context.Context, userID uuid.UUID) error {
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		return s.repo.IncrementResetAttempts(ctx, db, userID)
+	})
+}
+
+func (s *Service) LockTokenResetFor(ctx context.Context, userID uuid.UUID, duration time.Duration) error {
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		return s.repo.LockTokenResetFor(ctx, db, userID, duration)
+	})
 }

@@ -1,6 +1,7 @@
 package user
 
 import (
+	"booky-backend/internal/shared/token"
 	"booky-backend/pkg/api"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
@@ -8,7 +9,9 @@ import (
 	"booky-backend/pkg/utils"
 	"booky-backend/pkg/utils/jwt"
 	"context"
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,7 +54,16 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	token, err := jwt.CreateToken(user.ID.String(), h.config.JwtSecretKey, jwt.AccessTokenTTL, jwt.Access)
+	subject, err := json.Marshal(&token.UserSubject{
+		UserID:   user.ID,
+		UserRole: user.Role,
+	})
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	token, err := jwt.CreateToken(string(subject), h.config.JwtSecretKey, jwt.AccessTokenTTL, jwt.AccessTokenType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", "interval error"))
 	}
@@ -80,14 +92,23 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := jwt.CreateToken(user.ID.String(), h.config.JwtSecretKey, jwt.AccessTokenTTL, jwt.Access)
+	subject, err := json.Marshal(&token.UserSubject{
+		UserID:   user.ID,
+		UserRole: user.Role,
+	})
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	accessToken, err := jwt.CreateToken(string(subject), h.config.JwtSecretKey, jwt.AccessTokenTTL, jwt.AccessTokenType)
 	if err != nil {
 		logger.Log(logger.ERROR, err.Error())
 		c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", "interval error"))
 		return
 	}
 
-	refreshToken, err := jwt.CreateToken(user.ID.String(), h.config.JwtSecretKey, jwt.RefreshTokenTTL, jwt.Refresh)
+	refreshToken, err := jwt.CreateToken(string(subject), h.config.JwtSecretKey, jwt.RefreshTokenTTL, jwt.RefreshTokenType)
 	if err != nil {
 		logger.Log(logger.ERROR, err.Error())
 		c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", "interval error"))
@@ -203,7 +224,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := jwt.CreateToken(claims.Subject, h.config.JwtSecretKey, jwt.AccessTokenTTL, jwt.Access)
+	accessToken, err := jwt.CreateToken(claims.Subject, h.config.JwtSecretKey, jwt.AccessTokenTTL, jwt.AccessTokenType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", err.Error()))
 		return
@@ -212,4 +233,131 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	c.JSON(http.StatusOK, api.Success(RefreshTokenResponse{
 		AccessToken: accessToken,
 	}))
+}
+
+func (h *Handler) ForgetPassword(c *gin.Context) {
+	var req ForgetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	/// check user exists by email
+	user, err := h.service.GetUserByEmail(c.Request.Context(), req.Email)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	var resetToken string
+	if user.ResetTokenExpireAt != nil && user.ResetTokenExpireAt.After(time.Now()) {
+		resetToken = *user.ResetToken
+	} else {
+		subjectStr, err := json.Marshal(&token.UserSubject{
+			UserID:   user.ID,
+			UserRole: user.Role,
+		})
+		if err != nil {
+			h.handlerError(c, err)
+			return
+		}
+
+		resetToken, err = jwt.CreateToken(
+			string(subjectStr),
+			h.config.JwtSecretKey,
+			jwt.ResetPassTokenTTL,
+			jwt.ResetPassTokenType,
+		)
+		if err != nil {
+			h.handlerError(c, err)
+			return
+		}
+
+		err = h.service.SetResetToken(c.Request.Context(), user.ID, &resetToken)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, api.Error("INTERNAL_ERROR", err.Error()))
+			return
+		}
+	}
+
+	logger.Log(logger.INFO, "token created", logger.LMeta{
+		"hash":  resetToken,
+		"email": user.Email,
+		"id":    user.ID,
+	})
+
+	c.JSON(http.StatusOK, api.SuccessMessage("email sent successfully"))
+}
+
+func (h *Handler) VerifyForgetPassword(c *gin.Context) {
+	var req VerifyResetTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	logger.Log(logger.DEBUG,
+		"verify password reset token",
+		logger.LMeta{
+			"token":        req.Token,
+			"old_password": req.OldPassword,
+			"new_password": req.NewPassword,
+		})
+
+	claims, err := jwt.VerifyToken(
+		req.Token,
+		h.config.JwtSecretKey,
+	)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	var subject token.UserSubject
+	if err := json.Unmarshal(
+		[]byte(claims.Subject),
+		&subject,
+	); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	if err := h.service.CheckPasswordResetToken(
+		c.Request.Context(),
+		subject.UserID,
+		req.Token,
+	); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	if claims.ExpiresAt.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest,
+			api.Error(
+				"EXPIRED_TOKEN",
+				"expired reset token",
+			),
+		)
+		return
+	}
+
+	if err := h.service.CheckPassword(
+		c.Request.Context(),
+		subject.UserID,
+		req.OldPassword,
+	); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	if err := h.service.UpdatePassword(
+		c.Request.Context(),
+		subject.UserID,
+		req.NewPassword,
+	); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, api.SuccessMessage("password updated successfully"))
 }

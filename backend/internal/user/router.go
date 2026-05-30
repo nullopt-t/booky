@@ -2,6 +2,7 @@ package user
 
 import (
 	"booky-backend/internal/middleware"
+	"booky-backend/internal/model"
 	"booky-backend/pkg/config"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,8 @@ type UserHandler interface {
 	UserRegister(c *gin.Context)
 	UserLogin(c *gin.Context)
 	RefreshToken(c *gin.Context)
+	ForgetPassword(c *gin.Context)
+	VerifyForgetPassword(c *gin.Context)
 }
 
 type Router struct {
@@ -34,9 +37,15 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 	auth.POST("/register", r.handler.UserRegister)
 	auth.POST("/login", r.handler.UserLogin)
 	auth.POST("/refresh", r.handler.RefreshToken)
+	auth.POST("/forget-password", r.handler.ForgetPassword)
+	auth.POST("/forget-password/verify", r.handler.VerifyForgetPassword)
 
 	users := vgroup.Group("/users")
-	users.Use(middleware.Auth(r.config))
+	users.Use(
+		middleware.Authanticate(r.config),
+		middleware.Authorize(model.AdminRole),
+	)
+
 	users.GET("", r.handler.GetAllUsers)
 	users.GET("/:id", r.handler.GetUserByID)
 	users.PUT("/:id", r.handler.UpdateUser)

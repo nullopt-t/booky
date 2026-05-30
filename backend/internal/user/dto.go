@@ -66,3 +66,13 @@ type RefreshTokenRequest struct {
 type RefreshTokenResponse struct {
 	AccessToken string `json:"access_token"`
 }
+
+type ForgetPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type VerifyResetTokenRequest struct {
+	Token       string `json:"token"`
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
