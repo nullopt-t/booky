@@ -17,6 +17,11 @@ type UserRepository interface {
 	UpdateUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, user *model.User) error
 	DeleteUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
 	GetAllUsers(ctx context.Context, qe database.QueryExecutor, q *api.PageQuery) ([]*model.User, *api.Page, error)
+	VerifyUserByEmail(ctx context.Context, qe database.QueryExecutor, email string) error
+
+	// temporary
+	SetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, otp string) error
+	ResetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
 
 	// password
 	UpdateUserPasswordHash(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, newPassHash string) error
@@ -170,6 +175,48 @@ func (r *PostgresRepository) GetAllUsers(ctx context.Context, qe database.QueryE
 	}
 
 	return users, page, nil
+}
+
+func (r *PostgresRepository) SetUserEmailOTP(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+	otp string) error {
+	_, err := qe.Exec(ctx,
+		`
+		UPDATE users 
+		SET email_otp = $2
+		WHERE id = $1 AND deleted_at IS NULL
+		`, userID, otp)
+	return err
+}
+
+func (r *PostgresRepository) VerifyUserByEmail(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	email string,
+) error {
+	_, err := qe.Exec(ctx,
+		`
+		UPDATE users 
+		SET is_email_verified = TRUE
+		WHERE email = $1 AND deleted_at IS NULL
+		`, email)
+	return err
+}
+
+func (r *PostgresRepository) ResetUserEmailOTP(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+) error {
+	_, err := qe.Exec(ctx,
+		`
+		UPDATE users 
+		SET email_otp = NULL
+		WHERE id = $1 AND deleted_at IS NULL
+		`, userID)
+	return err
 }
 
 func (r *PostgresRepository) UpdateUserPasswordHash(

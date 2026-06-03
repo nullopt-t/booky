@@ -15,15 +15,15 @@ const (
 )
 
 type User struct {
-	ID           uuid.UUID
-	Email        string
-	PasswordHash string
-
-	ResetToken      *string
+	ID                  uuid.UUID
+	Email               string
+	EmailOTP            *string
+	IsEmailVerified     bool
+	PasswordHash        string
+	ResetToken          *string
 	ResetTokenExpireAt  *time.Time
 	LastResetAt         *time.Time
 	FailedResetAttempts int
-
 	Role                UserRole
 	FailedLoginAttempts int
 	LockedUntil         *time.Time

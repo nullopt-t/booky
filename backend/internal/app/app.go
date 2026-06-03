@@ -104,6 +104,12 @@ func (app *App) Run() error {
 		return err
 	}
 
+	if err := app.db.Ping(context.Background()); err != nil {
+		logger.Log(logger.WARN, "database is not live", logger.LMeta{
+			"Error": err.Error(),
+		})
+	}
+
 	router := gin.Default()
 	app.initHandlers(cfg, router)
 

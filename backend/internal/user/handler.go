@@ -1,6 +1,7 @@
 package user
 
 import (
+	"booky-backend/internal/middleware"
 	"booky-backend/internal/shared/token"
 	"booky-backend/pkg/api"
 	"booky-backend/pkg/config"
@@ -39,6 +40,10 @@ func (h *Handler) handlerError(c *gin.Context, err error) {
 	default:
 		c.JSON(http.StatusRequestTimeout, api.Error("INTERNAL_ERROR", err.Error()))
 	}
+	logger.Log(
+		logger.ERROR,
+		err.Error(),
+	)
 }
 
 func (h *Handler) UserRegister(c *gin.Context) {
@@ -137,8 +142,8 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 		ID:         user.ID,
 		Email:      user.Email,
 		IsInactive: user.IsInactive,
-		CreatedAt:  user.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:  user.UpdatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
 	}))
 }
 
@@ -189,8 +194,8 @@ func (h *Handler) GetAllUsers(c *gin.Context) {
 			ID:         user.ID,
 			Email:      user.Email,
 			IsInactive: user.IsInactive,
-			CreatedAt:  user.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:  user.UpdatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt:  user.CreatedAt,
+			UpdatedAt:  user.UpdatedAt,
 		})
 	}
 
@@ -289,7 +294,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, api.SuccessMessage("email sent successfully"))
 }
 
-func (h *Handler) VerifyForgetPassword(c *gin.Context) {
+func (h *Handler) ResetPassword(c *gin.Context) {
 	var req VerifyResetTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.handlerError(c, err)
@@ -359,5 +364,72 @@ func (h *Handler) VerifyForgetPassword(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, api.SuccessMessage("password updated successfully"))
+	c.JSON(
+		http.StatusOK,
+		api.SuccessMessage("password updated successfully"),
+	)
+}
+
+func (h *Handler) GetMe(c *gin.Context) {
+	u, err := middleware.GetUserWithContext(c)
+	if err != nil {
+		c.JSON(
+			http.StatusUnauthorized,
+			api.Error(
+				"INVALID_USER",
+				err.Error(),
+			),
+		)
+		return
+	}
+
+	user, err := h.service.GetUserByID(
+		c.Request.Context(),
+		u.UserID,
+	)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		api.Success(
+			UserResponse{
+				ID:         user.ID,
+				Email:      user.Email,
+				IsInactive: user.IsInactive,
+				CreatedAt:  user.CreatedAt,
+				UpdatedAt:  user.UpdatedAt,
+			},
+		),
+	)
+}
+
+func (h *Handler) VerifyEmailOTP(c *gin.Context) {
+	var req VerifyEmailOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	u, err := middleware.GetUserWithContext(c)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	if err := h.service.VerifyEmailOTP(
+		c.Request.Context(),
+		u.UserID,
+		req.Otp,
+	); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		api.SuccessMessage("email verified successfully"),
+	)
 }

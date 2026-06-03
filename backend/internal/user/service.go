@@ -22,6 +22,7 @@ type UserService interface {
 	GetAllUsers(ctx context.Context, q *api.PageQuery) ([]*model.User, *api.Page, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, user *UpdateUserRequest) error
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
+	VerifyEmailOTP(ctx context.Context, userID uuid.UUID, otp string) error
 	CheckPassword(ctx context.Context, userID uuid.UUID, password string) error
 	CheckPasswordResetToken(ctx context.Context, userID uuid.UUID, token string) error
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newPassword string) error
@@ -139,6 +140,32 @@ func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Service) VerifyEmailOTP(
+	ctx context.Context,
+	userID uuid.UUID,
+	otp string,
+) error {
+	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
+		user, err := s.repo.GetUserByID(ctx, db, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.IsEmailVerified {
+			return fmt.Errorf("email already verified")
+		}
+
+		if strings.Compare(*user.EmailOTP, otp) != 0 {
+			return fmt.Errorf("OTP does not match")
+		}
+
+		if err := s.repo.VerifyUserByEmail(ctx, db, user.Email); err != nil {
+			return err
+		}
+		return s.repo.ResetUserEmailOTP(ctx, db, user.ID)
+	})
 }
 
 func (s *Service) CheckPassword(

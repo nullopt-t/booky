@@ -7,15 +7,35 @@ import (
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/utils/jwt"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
+var (
+	ErrKeyNotFound        = errors.New("key not found in the context")
+	ErrInvalidUserSubject = errors.New("invalid user subject")
+)
+
 const prefix = "Bearer "
 
-func GetClaims(c *gin.Context) *jwt.Claims {
+func GetUserWithContext(c *gin.Context) (*token.UserSubject, error) {
+	value, ok := c.Get("user")
+	if !ok {
+		return nil, ErrKeyNotFound
+	}
+
+	userSubject, ok := value.(token.UserSubject)
+	if !ok {
+		return nil, ErrInvalidUserSubject
+	}
+
+	return &userSubject, nil
+}
+
+func GetClaimsWithContext(c *gin.Context) *jwt.Claims {
 	claims, ok := c.Get("claims")
 	if !ok {
 		return &jwt.Claims{}
@@ -29,31 +49,18 @@ func GetClaims(c *gin.Context) *jwt.Claims {
 
 func Authorize(requiredRole model.UserRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		value, ok := c.Get("user")
-		if !ok {
+		user, err := GetUserWithContext(c)
+		if err != nil {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
 				api.Error(
-					"MISSING_USER_ID",
-					"missing user id",
+					"INVALID_USER",
+					err.Error(),
 				),
 			)
 			return
 		}
-
-		userSubject, ok := value.(token.UserSubject)
-		if !ok {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.Error(
-					"MISSING_USER_ID",
-					"missing user id",
-				),
-			)
-			return
-		}
-
-		if userSubject.UserRole != requiredRole {
+		if user.UserRole != requiredRole {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
 				api.Error(

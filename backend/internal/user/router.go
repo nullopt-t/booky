@@ -17,7 +17,9 @@ type UserHandler interface {
 	UserLogin(c *gin.Context)
 	RefreshToken(c *gin.Context)
 	ForgetPassword(c *gin.Context)
-	VerifyForgetPassword(c *gin.Context)
+	ResetPassword(c *gin.Context)
+	GetMe(c *gin.Context)
+	VerifyEmailOTP(c *gin.Context)
 }
 
 type Router struct {
@@ -38,7 +40,14 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 	auth.POST("/login", r.handler.UserLogin)
 	auth.POST("/refresh", r.handler.RefreshToken)
 	auth.POST("/forget-password", r.handler.ForgetPassword)
-	auth.POST("/forget-password/verify", r.handler.VerifyForgetPassword)
+	auth.POST("/reset-password", r.handler.ResetPassword)
+
+	// protected auth routes
+	auth.Use(
+		middleware.Authanticate(r.config),
+	)
+	auth.GET("/me", r.handler.GetMe)
+	auth.POST("/verify-email-otp", r.handler.VerifyEmailOTP)
 
 	users := vgroup.Group("/users")
 	users.Use(

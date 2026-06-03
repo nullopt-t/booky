@@ -33,18 +33,12 @@ func ConnectDB(ctx context.Context, cfg *config.Config) (*DB, error) {
 	var err error
 	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("db connection failed : %w", err)
+		return nil, fmt.Errorf("parse database config : %w", err)
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		return nil, fmt.Errorf("db connection failed : %w", err)
-	}
-
-	err = pool.Ping(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("db connection failed : %w", err)
-
+		return nil, fmt.Errorf("database pool initialize : %w", err)
 	}
 
 	return &DB{Pool: pool}, nil

@@ -1,6 +1,8 @@
 package user
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -44,8 +46,9 @@ type UserResponse struct {
 	ID         uuid.UUID `json:"id"`
 	Email      string    `json:"email"`
 	IsInactive bool      `json:"is_inactive"`
-	CreatedAt  string    `json:"created_at"`
-	UpdatedAt  string    `json:"updated_at"`
+	DeletedAt  time.Time `json:"deleted_at,omitzero"`
+	CreatedAt  time.Time `json:"created_at,omitzero"`
+	UpdatedAt  time.Time `json:"updated_at,omitzero"`
 }
 
 type GetAllUsersResponse struct {
@@ -75,4 +78,8 @@ type VerifyResetTokenRequest struct {
 	Token       string `json:"token"`
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
+}
+
+type VerifyEmailOTPRequest struct {
+	Otp string `json:"otp"`
 }
