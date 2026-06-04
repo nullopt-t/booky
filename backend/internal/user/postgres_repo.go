@@ -10,27 +10,117 @@ import (
 	"github.com/google/uuid"
 )
 
+type CreateUserParams struct {
+	Email        *string
+	Phone        *string
+	PasswordHash string
+}
+
 type UserRepository interface {
-	CreateUser(ctx context.Context, qe database.QueryExecutor, email, passwordHashed string) (*model.User, error)
-	GetUserByID(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) (*model.User, error)
-	GetUserByEmail(ctx context.Context, qe database.QueryExecutor, email string) (*model.User, error)
-	UpdateUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, user *model.User) error
-	DeleteUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
-	GetAllUsers(ctx context.Context, qe database.QueryExecutor, q *api.PageQuery) ([]*model.User, *api.Page, error)
-	VerifyUserEmail(ctx context.Context, qe database.QueryExecutor, email string) error
-	VerifyUserPhone(ctx context.Context, qe database.QueryExecutor, phone string) error
+	CreateUser(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		params CreateUserParams,
+	) (uuid.UUID, error)
+
+	GetUserByID(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) (*model.User, error)
+
+	GetUserByEmail(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		email string,
+	) (*model.User, error)
+
+	GetUserByPhone(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		phone string,
+	) (*model.User, error)
+
+	DeleteUserByID(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
+
+	GetAllUsers(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		q api.PageQuery,
+	) ([]model.User, api.Page, error)
+
+	VerifyUserEmail(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		email string,
+	) error
+
+	VerifyUserPhone(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		phone string,
+	) error
 
 	// temporary
-	SetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, otp string, duration time.Duration) error
-	ResetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
-	SetUserPhoneOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, otp string, duration time.Duration) error
-	ResetUserPhoneOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
+	SetUserEmailOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID, otp string,
+		duration time.Duration,
+	) error
+
+	ResetUserEmailOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
+
+	SetUserPhoneOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+		otp string,
+		duration time.Duration,
+	) error
+
+	ResetUserPhoneOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
 
 	// password
-	UpdateUserPasswordHash(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, newPassHash string) error
-	SetResetToken(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, token *string, duration time.Duration) error
-	IncrementResetAttempts(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
-	LockTokenResetFor(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, duration time.Duration) error
+	UpdateUserPasswordHash(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+		newPassHash string,
+	) error
+
+	SetResetToken(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+		token *string,
+		duration time.Duration,
+	) error
+
+	IncrementResetAttempts(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
+
+	LockTokenResetFor(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+		duration time.Duration,
+	) error
 }
 
 type PostgresRepository struct {
@@ -40,107 +130,238 @@ func NewPostgresRepository() *PostgresRepository {
 	return &PostgresRepository{}
 }
 
-func (r *PostgresRepository) CreateUser(ctx context.Context, qe database.QueryExecutor, email, passwordHashed string) (*model.User, error) {
-	var createdUser model.User
-	err := qe.QueryRow(ctx, `INSERT INTO users(email, password_hash)
-								 VALUES ($1, $2) RETURNING id, email`,
-		email,
-		passwordHashed).Scan(
-		&createdUser.ID,
-		&createdUser.Email,
+func (r *PostgresRepository) CreateUser(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	params CreateUserParams,
+) (uuid.UUID, error) {
+	var createdUserID uuid.UUID
+	err := qe.QueryRow(
+		ctx,
+		`INSERT INTO users(email, phone, password_hash)
+		 VALUES ($1, $2) RETURNING id, email, phone`,
+		params.Email,
+		params.Phone,
+		params.PasswordHash,
+	).Scan(
+		&createdUserID,
 	)
-	return &createdUser, err
+	return createdUserID, err
 }
 
-func (r *PostgresRepository) GetUserByID(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) (*model.User, error) {
+func (r *PostgresRepository) GetUserByID(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+) (*model.User, error) {
 	var existedUser model.User
-	err := qe.QueryRow(ctx, `SELECT email, 
-							  password_hash,
-							  reset_token, 
-							  is_inactive,
-							  failed_login_attempts, 
-						 	  locked_until,
-						 	  created_at,
-						 	  updated_at, 
-						 	  deleted_at FROM users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(
+	err := qe.QueryRow(
+		ctx,
+		`SELECT
+				id, 
+				email, 
+				email_otp,
+				email_otp_expires_at,
+				email_otp_attempts,
+				is_email_verified,
+				phone,
+				phone_otp,
+				phone_otp_expires_at,
+				phone_otp_attempts,
+				is_phone_verified,
+				role,
+				password_hash,
+				reset_token, 
+				failed_reset_attempts,
+				last_reset_request_at,
+				is_inactive,
+				failed_login_attempts, 
+				locked_until,
+				created_at,
+				updated_at,
+				FROM users WHERE id = $1 AND deleted_at IS NULL`,
+		userID,
+	).Scan(
 		&existedUser.Email,
+		&existedUser.EmailOTPExpiresAt,
+		&existedUser.EmailOTPAttempts,
+		&existedUser.IsEmailVerified,
+		&existedUser.Phone,
+		&existedUser.PhoneOTP,
+		&existedUser.PhoneOTPExpiresAt,
+		&existedUser.PhoneOTPAttempts,
+		&existedUser.IsPhoneVerified,
+		&existedUser.Role,
 		&existedUser.PasswordHash,
 		&existedUser.ResetToken,
 		&existedUser.IsInactive,
 		&existedUser.FailedLoginAttempts,
 		&existedUser.LockedUntil,
 		&existedUser.CreatedAt,
-		&existedUser.UpdatedAt,
-		&existedUser.DeletedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &existedUser, nil
-}
-
-func (r *PostgresRepository) GetUserByEmail(ctx context.Context, qe database.QueryExecutor, email string) (*model.User, error) {
-	var existedUser model.User
-	err := qe.QueryRow(ctx,
-		`SELECT id,
-			email, 
-			password_hash, 
-			reset_token,
-			reset_token_expires_at,
-			is_inactive, 
-			failed_login_attempts, 
-			locked_until, 
-			created_at, 
-			updated_at, 
-			deleted_at FROM users WHERE email = $1 AND deleted_at IS NULL`,
-		email).Scan(
-		&existedUser.ID,
-		&existedUser.Email,
-		&existedUser.PasswordHash,
-		&existedUser.ResetToken,
-		&existedUser.ResetTokenExpireAt,
-		&existedUser.IsInactive,
-		&existedUser.FailedLoginAttempts,
-		&existedUser.LockedUntil,
-		&existedUser.CreatedAt,
-		&existedUser.UpdatedAt,
-		&existedUser.DeletedAt)
+		&existedUser.UpdatedAt)
 	return &existedUser, err
 }
 
-func (r *PostgresRepository) UpdateUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, user *model.User) error {
-	_, err := qe.Exec(ctx, `UPDATE users SET email = $1, 
-								password_hash = $2, 
-								is_inactive = $3,
-								failed_login_attempts = $4, 
-								locked_until = $5 WHERE id = $6 AND deleted_at IS NULL`,
-		user.Email,
-		user.PasswordHash,
-		user.IsInactive,
-		user.FailedLoginAttempts,
-		user.LockedUntil,
+func (r *PostgresRepository) GetUserByEmail(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	email string,
+) (*model.User, error) {
+	var existedUser model.User
+	err := qe.QueryRow(
+		ctx,
+		`SELECT 
+				id,
+				email, 
+				email_otp,
+				email_otp_expires_at,
+				email_otp_attempts,
+				is_email_verified,
+				phone,
+				phone_otp,
+				phone_otp_expires_at,
+				phone_otp_attempts,
+				is_phone_verified,
+				role,
+				password_hash,
+				reset_token, 
+				failed_reset_attempts,
+				last_reset_request_at,
+				is_inactive,
+				failed_login_attempts, 
+				locked_until,
+				created_at,
+				updated_at,
+				FROM users WHERE email = $1 AND deleted_at IS NULL`,
+		email,
+	).Scan(
+		&existedUser.ID,
+		&existedUser.Email,
+		&existedUser.EmailOTPExpiresAt,
+		&existedUser.EmailOTPAttempts,
+		&existedUser.IsEmailVerified,
+		&existedUser.Phone,
+		&existedUser.PhoneOTP,
+		&existedUser.PhoneOTPExpiresAt,
+		&existedUser.PhoneOTPAttempts,
+		&existedUser.IsPhoneVerified,
+		&existedUser.Role,
+		&existedUser.PasswordHash,
+		&existedUser.ResetToken,
+		&existedUser.IsInactive,
+		&existedUser.FailedLoginAttempts,
+		&existedUser.LockedUntil,
+		&existedUser.CreatedAt,
+		&existedUser.UpdatedAt)
+	return &existedUser, err
+}
+
+func (r *PostgresRepository) GetUserByPhone(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	phone string,
+) (*model.User, error) {
+	var existedUser model.User
+	err := qe.QueryRow(
+		ctx,
+		`SELECT
+				id, 
+				email, 
+				email_otp,
+				email_otp_expires_at,
+				email_otp_attempts,
+				is_email_verified,
+				phone,
+				phone_otp,
+				phone_otp_expires_at,
+				phone_otp_attempts,
+				is_phone_verified,
+				role,
+				password_hash,
+				reset_token, 
+				failed_reset_attempts,
+				last_reset_request_at,
+				is_inactive,
+				failed_login_attempts, 
+				locked_until,
+				created_at,
+				updated_at,
+				FROM users WHERE phone = $1 AND deleted_at IS NULL`,
+		phone,
+	).Scan(
+		&existedUser.ID,
+		&existedUser.Email,
+		&existedUser.EmailOTPExpiresAt,
+		&existedUser.EmailOTPAttempts,
+		&existedUser.IsEmailVerified,
+		&existedUser.Phone,
+		&existedUser.PhoneOTP,
+		&existedUser.PhoneOTPExpiresAt,
+		&existedUser.PhoneOTPAttempts,
+		&existedUser.IsPhoneVerified,
+		&existedUser.Role,
+		&existedUser.PasswordHash,
+		&existedUser.ResetToken,
+		&existedUser.IsInactive,
+		&existedUser.FailedLoginAttempts,
+		&existedUser.LockedUntil,
+		&existedUser.CreatedAt,
+		&existedUser.UpdatedAt)
+	return &existedUser, err
+}
+
+func (r *PostgresRepository) DeleteUserByID(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+) error {
+	_, err := qe.Exec(
+		ctx,
+		`UPDATE users 
+		 		SET deleted_at = NOW() 
+		 		WHERE id = $1 AND deleted_at IS NULL`,
 		userID)
 	return err
 }
 
-func (r *PostgresRepository) DeleteUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error {
-	_, err := qe.Exec(ctx, "UPDATE users SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL", userID)
-	return err
-}
-
-func (r *PostgresRepository) GetAllUsers(ctx context.Context, qe database.QueryExecutor, q *api.PageQuery) ([]*model.User, *api.Page, error) {
-	offset := (q.Page - 1) * q.Limit
-	var users []*model.User
-	rows, err := qe.Query(ctx, `SELECT id, 
-									email, 
-									password_hash,
-									is_inactive,
-									failed_login_attempts, 
-									locked_until,
-									created_at, 
-									updated_at, 
-									deleted_at FROM users WHERE deleted_at IS NULL LIMIT $1 OFFSET $2`, q.Limit, offset)
+func (r *PostgresRepository) GetAllUsers(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	q api.PageQuery,
+) ([]model.User, api.Page, error) {
+	offset := (q.Page - 1) * q.PageSize
+	var users []model.User
+	var page api.Page
+	rows, err := qe.Query(
+		ctx,
+		`SELECT
+				id, 
+				email, 
+				email_otp,
+				email_otp_expires_at,
+				email_otp_attempts,
+				is_email_verified,
+				phone,
+				phone_otp,
+				phone_otp_expires_at,
+				phone_otp_attempts,
+				is_phone_verified,
+				role,
+				password_hash,
+				reset_token, 
+				failed_reset_attempts,
+				last_reset_request_at,
+				is_inactive,
+				failed_login_attempts, 
+				locked_until,
+				created_at,
+				updated_at,
+				FROM users deleted_at IS NULL LIMIT $1 OFFSET $2`,
+		q.PageSize,
+		offset,
+	)
 	if err != nil {
-		return nil, nil, err
+		return nil, page, err
 	}
 
 	for rows.Next() {
@@ -148,33 +369,41 @@ func (r *PostgresRepository) GetAllUsers(ctx context.Context, qe database.QueryE
 		err := rows.Scan(
 			&user.ID,
 			&user.Email,
+			&user.EmailOTPExpiresAt,
+			&user.EmailOTPAttempts,
+			&user.IsEmailVerified,
+			&user.Phone,
+			&user.PhoneOTP,
+			&user.PhoneOTPExpiresAt,
+			&user.PhoneOTPAttempts,
+			&user.IsPhoneVerified,
+			&user.Role,
 			&user.PasswordHash,
+			&user.ResetToken,
 			&user.IsInactive,
 			&user.FailedLoginAttempts,
 			&user.LockedUntil,
 			&user.CreatedAt,
-			&user.UpdatedAt,
-			&user.DeletedAt,
-		)
+			&user.UpdatedAt)
 		if err != nil {
-			return nil, nil, err
+			return nil, page, err
 		}
-		users = append(users, &user)
+		users = append(users, user)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, err
+		return nil, page, err
 	}
 
 	var count int
 	err = qe.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
 	if err != nil {
-		return nil, nil, err
+		return nil, page, err
 	}
 
-	page := &api.Page{
-		Index: q.Page,
-		Limit: q.Limit,
-		Total: count,
+	page = api.Page{
+		Page:     q.Page,
+		PageSize: q.PageSize,
+		Total:    count,
 	}
 
 	return users, page, nil
@@ -185,7 +414,8 @@ func (r *PostgresRepository) SetUserEmailOTP(
 	qe database.QueryExecutor,
 	userID uuid.UUID,
 	otp string,
-	duration time.Duration) error {
+	duration time.Duration,
+) error {
 	utc := time.Now().Add(duration)
 	_, err := qe.Exec(ctx,
 		`
@@ -325,7 +555,12 @@ func (r *PostgresRepository) IncrementResetAttempts(
 	return err
 }
 
-func (r *PostgresRepository) LockTokenResetFor(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, duration time.Duration) error {
+func (r *PostgresRepository) LockTokenResetFor(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+	duration time.Duration,
+) error {
 	expireAt := time.Now().Add(duration)
 	_, err := qe.Exec(ctx, `UPDATE users 
 								SET reset_locked_until = $2,
