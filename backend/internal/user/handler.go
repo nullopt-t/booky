@@ -396,11 +396,14 @@ func (h *Handler) GetMe(c *gin.Context) {
 		http.StatusOK,
 		api.Success(
 			UserResponse{
-				ID:         user.ID,
-				Email:      user.Email,
-				IsInactive: user.IsInactive,
-				CreatedAt:  user.CreatedAt,
-				UpdatedAt:  user.UpdatedAt,
+				ID:              user.ID,
+				Role:            string(user.Role),
+				Email:           user.Email,
+				IsEmailVerified: user.IsEmailVerified,
+				IsInactive:      user.IsInactive,
+				LockedUntil:     *user.LockedUntil,
+				CreatedAt:       user.CreatedAt,
+				UpdatedAt:       user.UpdatedAt,
 			},
 		),
 	)
@@ -431,5 +434,75 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 	c.JSON(
 		http.StatusOK,
 		api.SuccessMessage("email verified successfully"),
+	)
+}
+
+func (h *Handler) ResendEmailOTP(c *gin.Context) {
+	u, err := middleware.GetUserWithContext(c)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	err = h.service.ResendEmailOTP(
+		c.Request.Context(),
+		u.UserID)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		api.SuccessMessage("email sent successfully"),
+	)
+}
+
+func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
+	var req VerifyEmailOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	u, err := middleware.GetUserWithContext(c)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	if err := h.service.VerifyPhoneOTP(
+		c.Request.Context(),
+		u.UserID,
+		req.Otp,
+	); err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		api.SuccessMessage("email verified successfully"),
+	)
+}
+
+func (h *Handler) ResendPhoneOTP(c *gin.Context) {
+	u, err := middleware.GetUserWithContext(c)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	err = h.service.ResendPhoneOTP(
+		c.Request.Context(),
+		u.UserID)
+	if err != nil {
+		h.handlerError(c, err)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		api.SuccessMessage("email sent successfully"),
 	)
 }

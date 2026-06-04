@@ -3,16 +3,23 @@ CREATE TABLE IF NOT EXISTS users (
     email CITEXT NOT NULL UNIQUE CHECK (
         email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
     ),
+    email_otp TEXT NULL,
+    email_opt_expires_at TIMESTAMPTZ NULL,
+    email_otp_attempts INT DEFAULT 0,
     is_email_verified BOOLEAN DEFAULT FALSE,
-    email_otp TEXT DEFAULT NULL,
 
+    phone TEXT NULL,
+    phone_otp TEXT NULL,
+    phone_otp_expires_at TIMESTAMPTZ NULL,
+    phone_otp_attempts INT DEFAULT 0,
+    is_phone_verified BOOLEAN DEFAULT FALSE,
     
     role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin', 'vendor')),
     
     password_hash TEXT NOT NULL,
     
     -- password resetting columns
-    reset_token TEXT DEFAULT NULL,
+    reset_token TEXT NULL,
 
     failed_reset_attempts INT DEFAULT 0,
     last_reset_request_at TIMESTAMPTZ NULL,

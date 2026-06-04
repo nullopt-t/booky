@@ -20,6 +20,9 @@ type UserHandler interface {
 	ResetPassword(c *gin.Context)
 	GetMe(c *gin.Context)
 	VerifyEmailOTP(c *gin.Context)
+	ResendEmailOTP(c *gin.Context)
+	VerifyPhoneOTP(c *gin.Context)
+	ResendPhoneOTP(c *gin.Context)
 }
 
 type Router struct {
@@ -48,6 +51,9 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 	)
 	auth.GET("/me", r.handler.GetMe)
 	auth.POST("/verify-email-otp", r.handler.VerifyEmailOTP)
+	auth.POST("/resend-email-otp", r.handler.ResendEmailOTP)
+	auth.POST("/verify-phone-otp", r.handler.VerifyPhoneOTP)
+	auth.POST("/resend-phone-otp", r.handler.ResendPhoneOTP)
 
 	users := vgroup.Group("/users")
 	users.Use(

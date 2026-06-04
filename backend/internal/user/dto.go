@@ -43,12 +43,15 @@ type UpdateUserRequest struct {
 }
 
 type UserResponse struct {
-	ID         uuid.UUID `json:"id"`
-	Email      string    `json:"email"`
-	IsInactive bool      `json:"is_inactive"`
-	DeletedAt  time.Time `json:"deleted_at,omitzero"`
-	CreatedAt  time.Time `json:"created_at,omitzero"`
-	UpdatedAt  time.Time `json:"updated_at,omitzero"`
+	ID              uuid.UUID `json:"id"`
+	Role            string    `json:"role"`
+	Email           string    `json:"email"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+	IsInactive      bool      `json:"is_inactive"`
+	LockedUntil     time.Time `json:"locked_unitl,omitzero"`
+	DeletedAt       time.Time `json:"deleted_at,omitzero"`
+	CreatedAt       time.Time `json:"created_at,omitzero"`
+	UpdatedAt       time.Time `json:"updated_at,omitzero"`
 }
 
 type GetAllUsersResponse struct {

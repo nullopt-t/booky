@@ -18,7 +18,13 @@ type User struct {
 	ID                  uuid.UUID
 	Email               string
 	EmailOTP            *string
+	EmailOTPExpiresAt   *time.Time
 	IsEmailVerified     bool
+	Phone               string
+	PhoneOTP            *string
+	PhoneOTPAttempts    int
+	PhoneOTPExpiresAt   *time.Time
+	IsPhoneVerified     bool
 	PasswordHash        string
 	ResetToken          *string
 	ResetTokenExpireAt  *time.Time

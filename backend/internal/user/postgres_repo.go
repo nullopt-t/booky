@@ -17,11 +17,14 @@ type UserRepository interface {
 	UpdateUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, user *model.User) error
 	DeleteUser(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
 	GetAllUsers(ctx context.Context, qe database.QueryExecutor, q *api.PageQuery) ([]*model.User, *api.Page, error)
-	VerifyUserByEmail(ctx context.Context, qe database.QueryExecutor, email string) error
+	VerifyUserEmail(ctx context.Context, qe database.QueryExecutor, email string) error
+	VerifyUserPhone(ctx context.Context, qe database.QueryExecutor, phone string) error
 
 	// temporary
-	SetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, otp string) error
+	SetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, otp string, duration time.Duration) error
 	ResetUserEmailOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
+	SetUserPhoneOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, otp string, duration time.Duration) error
+	ResetUserPhoneOTP(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID) error
 
 	// password
 	UpdateUserPasswordHash(ctx context.Context, qe database.QueryExecutor, userID uuid.UUID, newPassHash string) error
@@ -181,17 +184,37 @@ func (r *PostgresRepository) SetUserEmailOTP(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	userID uuid.UUID,
-	otp string) error {
+	otp string,
+	duration time.Duration) error {
+	utc := time.Now().Add(duration)
 	_, err := qe.Exec(ctx,
 		`
 		UPDATE users 
-		SET email_otp = $2
+		SET email_otp = $2,
+			email_otp_expires_at = $3
 		WHERE id = $1 AND deleted_at IS NULL
-		`, userID, otp)
+		`, userID, otp, utc)
 	return err
 }
 
-func (r *PostgresRepository) VerifyUserByEmail(
+func (r *PostgresRepository) SetUserPhoneOTP(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+	otp string,
+	duration time.Duration) error {
+	utc := time.Now().Add(duration)
+	_, err := qe.Exec(ctx,
+		`
+		UPDATE users 
+		SET phone_otp = $2,
+			phone_otp_expires_at = $3
+		WHERE id = $1 AND deleted_at IS NULL
+		`, userID, otp, utc)
+	return err
+}
+
+func (r *PostgresRepository) VerifyUserEmail(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	email string,
@@ -213,7 +236,39 @@ func (r *PostgresRepository) ResetUserEmailOTP(
 	_, err := qe.Exec(ctx,
 		`
 		UPDATE users 
-		SET email_otp = NULL
+		SET email_otp = NULL,
+			email_otp_expires_at = NULL,
+			email_otp_attempts = 0,
+		WHERE id = $1 AND deleted_at IS NULL
+		`, userID)
+	return err
+}
+
+func (r *PostgresRepository) VerifyUserPhone(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	phone string,
+) error {
+	_, err := qe.Exec(ctx,
+		`
+		UPDATE users 
+		SET is_email_verified = TRUE
+		WHERE phone = $1 AND deleted_at IS NULL
+		`, phone)
+	return err
+}
+
+func (r *PostgresRepository) ResetUserPhoneOTP(
+	ctx context.Context,
+	qe database.QueryExecutor,
+	userID uuid.UUID,
+) error {
+	_, err := qe.Exec(ctx,
+		`
+		UPDATE users 
+		SET phone_otp = NULL,
+			phone_otp_expires_at = NULL,
+			phone_otp_attempts = 0,
 		WHERE id = $1 AND deleted_at IS NULL
 		`, userID)
 	return err
