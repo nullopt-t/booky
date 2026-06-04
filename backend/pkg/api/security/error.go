@@ -1,6 +1,8 @@
 package security
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	Reset  = "\033[0m"
