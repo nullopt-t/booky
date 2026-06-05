@@ -1,0 +1,15 @@
+# <type>: <subject>
+
+# Types:
+# feat:     New feature
+# fix:      Bug fix
+# docs:     Documentation changes
+# style:    Code style changes (formatting)
+# refactor: Code refactoring
+# test:     Adding tests
+# chore:    Maintenance tasks
+
+# Example:
+# feat: add user profile image upload
+# fix: resolve login validation error
+# docs: update README with setup instructions
