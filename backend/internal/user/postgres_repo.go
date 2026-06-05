@@ -16,6 +16,37 @@ type CreateUserParams struct {
 	PasswordHash string
 }
 
+type OTPRepository interface {
+	// temporary
+	SetUserEmailOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+		otp string,
+		duration time.Duration,
+	) error
+
+	ResetUserEmailOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
+
+	SetUserPhoneOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+		otp string,
+		duration time.Duration,
+	) error
+
+	ResetUserPhoneOTP(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
+}
+
 type UserRepository interface {
 	CreateUser(
 		ctx context.Context,
@@ -65,34 +96,6 @@ type UserRepository interface {
 		phone string,
 	) error
 
-	// temporary
-	SetUserEmailOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID, otp string,
-		duration time.Duration,
-	) error
-
-	ResetUserEmailOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-	) error
-
-	SetUserPhoneOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-		otp string,
-		duration time.Duration,
-	) error
-
-	ResetUserPhoneOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-	) error
-
 	// password
 	UpdateUserPasswordHash(
 		ctx context.Context,
@@ -105,7 +108,7 @@ type UserRepository interface {
 		ctx context.Context,
 		qe database.QueryExecutor,
 		userID uuid.UUID,
-		token *string,
+		token string,
 		duration time.Duration,
 	) error
 
@@ -121,6 +124,8 @@ type UserRepository interface {
 		userID uuid.UUID,
 		duration time.Duration,
 	) error
+
+	OTPRepository
 }
 
 type PostgresRepository struct {
@@ -139,7 +144,7 @@ func (r *PostgresRepository) CreateUser(
 	err := qe.QueryRow(
 		ctx,
 		`INSERT INTO users(email, phone, password_hash)
-		 VALUES ($1, $2) RETURNING id, email, phone`,
+		 VALUES ($1, $2, $3) RETURNING id`,
 		params.Email,
 		params.Phone,
 		params.PasswordHash,
@@ -178,11 +183,14 @@ func (r *PostgresRepository) GetUserByID(
 				failed_login_attempts, 
 				locked_until,
 				created_at,
-				updated_at,
-				FROM users WHERE id = $1 AND deleted_at IS NULL`,
+				updated_at
+				FROM users 
+				WHERE id = $1 AND deleted_at IS NULL`,
 		userID,
 	).Scan(
+		&existedUser.ID,
 		&existedUser.Email,
+		&existedUser.EmailOTP,
 		&existedUser.EmailOTPExpiresAt,
 		&existedUser.EmailOTPAttempts,
 		&existedUser.IsEmailVerified,
@@ -194,6 +202,8 @@ func (r *PostgresRepository) GetUserByID(
 		&existedUser.Role,
 		&existedUser.PasswordHash,
 		&existedUser.ResetToken,
+		&existedUser.FailedResetAttempts,
+		&existedUser.LastResetRequestAt,
 		&existedUser.IsInactive,
 		&existedUser.FailedLoginAttempts,
 		&existedUser.LockedUntil,
@@ -231,12 +241,14 @@ func (r *PostgresRepository) GetUserByEmail(
 				failed_login_attempts, 
 				locked_until,
 				created_at,
-				updated_at,
-				FROM users WHERE email = $1 AND deleted_at IS NULL`,
+				updated_at
+				FROM users 
+				WHERE email = $1 AND deleted_at IS NULL`,
 		email,
 	).Scan(
 		&existedUser.ID,
 		&existedUser.Email,
+		&existedUser.EmailOTP,
 		&existedUser.EmailOTPExpiresAt,
 		&existedUser.EmailOTPAttempts,
 		&existedUser.IsEmailVerified,
@@ -248,6 +260,8 @@ func (r *PostgresRepository) GetUserByEmail(
 		&existedUser.Role,
 		&existedUser.PasswordHash,
 		&existedUser.ResetToken,
+		&existedUser.FailedResetAttempts,
+		&existedUser.LastResetRequestAt,
 		&existedUser.IsInactive,
 		&existedUser.FailedLoginAttempts,
 		&existedUser.LockedUntil,
@@ -285,12 +299,14 @@ func (r *PostgresRepository) GetUserByPhone(
 				failed_login_attempts, 
 				locked_until,
 				created_at,
-				updated_at,
-				FROM users WHERE phone = $1 AND deleted_at IS NULL`,
+				updated_at
+				FROM users 
+				WHERE phone = $1 AND deleted_at IS NULL`,
 		phone,
 	).Scan(
 		&existedUser.ID,
 		&existedUser.Email,
+		&existedUser.EmailOTP,
 		&existedUser.EmailOTPExpiresAt,
 		&existedUser.EmailOTPAttempts,
 		&existedUser.IsEmailVerified,
@@ -302,6 +318,8 @@ func (r *PostgresRepository) GetUserByPhone(
 		&existedUser.Role,
 		&existedUser.PasswordHash,
 		&existedUser.ResetToken,
+		&existedUser.FailedResetAttempts,
+		&existedUser.LastResetRequestAt,
 		&existedUser.IsInactive,
 		&existedUser.FailedLoginAttempts,
 		&existedUser.LockedUntil,
@@ -355,8 +373,9 @@ func (r *PostgresRepository) GetAllUsers(
 				failed_login_attempts, 
 				locked_until,
 				created_at,
-				updated_at,
-				FROM users deleted_at IS NULL LIMIT $1 OFFSET $2`,
+				updated_at
+				FROM users 
+				WHERE deleted_at IS NULL LIMIT $1 OFFSET $2`,
 		q.PageSize,
 		offset,
 	)
@@ -369,6 +388,7 @@ func (r *PostgresRepository) GetAllUsers(
 		err := rows.Scan(
 			&user.ID,
 			&user.Email,
+			&user.EmailOTP,
 			&user.EmailOTPExpiresAt,
 			&user.EmailOTPAttempts,
 			&user.IsEmailVerified,
@@ -380,6 +400,8 @@ func (r *PostgresRepository) GetAllUsers(
 			&user.Role,
 			&user.PasswordHash,
 			&user.ResetToken,
+			&user.FailedResetAttempts,
+			&user.LastResetRequestAt,
 			&user.IsInactive,
 			&user.FailedLoginAttempts,
 			&user.LockedUntil,
@@ -468,7 +490,7 @@ func (r *PostgresRepository) ResetUserEmailOTP(
 		UPDATE users 
 		SET email_otp = NULL,
 			email_otp_expires_at = NULL,
-			email_otp_attempts = 0,
+			email_otp_attempts = 0
 		WHERE id = $1 AND deleted_at IS NULL
 		`, userID)
 	return err
@@ -498,7 +520,7 @@ func (r *PostgresRepository) ResetUserPhoneOTP(
 		UPDATE users 
 		SET phone_otp = NULL,
 			phone_otp_expires_at = NULL,
-			phone_otp_attempts = 0,
+			phone_otp_attempts = 0
 		WHERE id = $1 AND deleted_at IS NULL
 		`, userID)
 	return err
@@ -523,11 +545,11 @@ func (r *PostgresRepository) SetResetToken(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	userID uuid.UUID,
-	token *string,
+	token string,
 	duration time.Duration,
 ) error {
 
-	expireAt := time.Now().Add(duration)
+	expiresAt := time.Now().Add(duration)
 
 	_, err := qe.Exec(ctx, `
         UPDATE users
@@ -537,7 +559,7 @@ func (r *PostgresRepository) SetResetToken(
     `,
 		userID,
 		token,
-		expireAt,
+		expiresAt,
 	)
 
 	return err
@@ -564,7 +586,7 @@ func (r *PostgresRepository) LockTokenResetFor(
 	expireAt := time.Now().Add(duration)
 	_, err := qe.Exec(ctx, `UPDATE users 
 								SET reset_locked_until = $2,
-								SET failed_reset_attempts = 0,
+								SET failed_reset_attempts = 0
 								WHERE id = $1 AND deleted_at IS NULL`,
 		userID, expireAt)
 	return err

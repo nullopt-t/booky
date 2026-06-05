@@ -30,10 +30,10 @@ type Claims struct {
 	Type TokenType `json:"type,omitempty"`
 }
 
-func CreateToken(userID, secret string, duration TokenDuration, tokenType TokenType) (string, error) {
+func CreateToken(subject, secret string, duration TokenDuration, tokenType TokenType) (string, error) {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   userID,
+			Subject:   subject,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(duration))),
 		},

@@ -16,11 +16,12 @@ const (
 
 type User struct {
 	ID                  uuid.UUID
-	Email               string
+	Email               *string
 	EmailOTP            *string
 	EmailOTPExpiresAt   *time.Time
+	EmailOTPAttempts    int
 	IsEmailVerified     bool
-	Phone               string
+	Phone               *string
 	PhoneOTP            *string
 	PhoneOTPAttempts    int
 	PhoneOTPExpiresAt   *time.Time
@@ -28,7 +29,7 @@ type User struct {
 	PasswordHash        string
 	ResetToken          *string
 	ResetTokenExpireAt  *time.Time
-	LastResetAt         *time.Time
+	LastResetRequestAt  *time.Time
 	FailedResetAttempts int
 	Role                UserRole
 	FailedLoginAttempts int

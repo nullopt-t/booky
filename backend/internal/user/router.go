@@ -10,7 +10,6 @@ import (
 
 type UserHandler interface {
 	GetUserByID(c *gin.Context)
-	UpdateUser(c *gin.Context)
 	DeleteUser(c *gin.Context)
 	GetAllUsers(c *gin.Context)
 	UserRegister(c *gin.Context)
@@ -63,6 +62,5 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 
 	users.GET("", r.handler.GetAllUsers)
 	users.GET("/:id", r.handler.GetUserByID)
-	users.PUT("/:id", r.handler.UpdateUser)
 	users.DELETE("/:id", r.handler.DeleteUser)
 }

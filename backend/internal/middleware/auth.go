@@ -53,20 +53,20 @@ func Authorize(requiredRole model.UserRole) gin.HandlerFunc {
 		if err != nil {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				api.Error(
-					"INVALID_USER",
-					err.Error(),
-				),
+				api.ErrorResponse{
+					Code:    "INVALID_USER",
+					Message: err.Error(),
+				},
 			)
 			return
 		}
 		if user.UserRole != requiredRole {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				api.Error(
-					"FORBIDDEN",
-					"no permission",
-				),
+				api.ErrorResponse{
+					Code:    "FORBIDDEN",
+					Message: "no permission",
+				},
 			)
 			return
 		}
@@ -82,10 +82,10 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 		if authHeader == "" {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				api.Error(
-					"MISSING_AUTH_HEADER",
-					"authorization header is required",
-				),
+				api.ErrorResponse{
+					Code:    "MISSING_AUTH_HEADER",
+					Message: "authorization header is required",
+				},
 			)
 			return
 		}
@@ -93,10 +93,10 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 		if !strings.HasPrefix(authHeader, prefix) {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				api.Error(
-					"INVALID_AUTH_FORMAT",
-					"authorization header must use Bearer scheme",
-				),
+				api.ErrorResponse{
+					Code:    "INVALID_AUTH_FORMAT",
+					Message: "authorization header must use Bearer scheme",
+				},
 			)
 			return
 		}
@@ -111,10 +111,10 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 		if err != nil {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				api.Error(
-					"INVALID_TOKEN",
-					err.Error(),
-				),
+				api.ErrorResponse{
+					Code:    "INVALID_TOKEN",
+					Message: err.Error(),
+				},
 			)
 			return
 		}
@@ -123,10 +123,10 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 		if err := json.Unmarshal([]byte(claims.Subject), &userSubject); err != nil {
 			c.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				api.Error(
-					"INVALID_TOKEN",
-					err.Error(),
-				),
+				api.ErrorResponse{
+					Code:    "INVALID_TOKEN",
+					Message: err.Error(),
+				},
 			)
 			return
 		}

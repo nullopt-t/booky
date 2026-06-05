@@ -1,15 +1,15 @@
 package app
 
 import (
-	"booky-backend/internal/cart"
+	// "booky-backend/internal/cart"
 	"booky-backend/internal/http/swagger"
-	"booky-backend/internal/inventory"
-	"booky-backend/internal/product"
+	// "booky-backend/internal/inventory"
+	// "booky-backend/internal/product"
 	"booky-backend/internal/user"
 	"booky-backend/pkg/logger"
 
 	// "booky-backend/internal/checkout"
-	"booky-backend/internal/order"
+	// "booky-backend/internal/order"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
 	"context"
@@ -47,32 +47,32 @@ func (app *App) initHandlers(config *config.Config, router *gin.Engine) {
 	userRouter.MapRoutes(v1)
 
 	// inventory
-	inventoryRepo := inventory.NewPostgresRepository()
-	inventoryService := inventory.NewService(txRunner, inventoryRepo)
-	inventoryHandler := inventory.NewHandler(inventoryService)
-	inventoryRouter := inventory.NewRouter(inventoryHandler)
-	inventoryRouter.MapRoutes(v1.Group("/inventories"))
+	// inventoryRepo := inventory.NewPostgresRepository()
+	// inventoryService := inventory.NewService(txRunner, inventoryRepo)
+	// inventoryHandler := inventory.NewHandler(inventoryService)
+	// inventoryRouter := inventory.NewRouter(inventoryHandler)
+	// inventoryRouter.MapRoutes(v1.Group("/inventories"))
 
-	// product
-	productRepo := product.NewPostgresRepository()
-	productService := product.NewService(txRunner, productRepo, inventoryRepo)
-	productHandler := product.NewHandler(productService)
-	productRouter := product.NewRouter(productHandler)
-	productRouter.MapRoutes(v1.Group("/products"))
+	// // product
+	// productRepo := product.NewPostgresRepository()
+	// productService := product.NewService(txRunner, productRepo, inventoryRepo)
+	// productHandler := product.NewHandler(productService)
+	// productRouter := product.NewRouter(productHandler)
+	// productRouter.MapRoutes(v1.Group("/products"))
 
-	// cart
-	cartRepo := cart.NewPostgresRepository()
-	cartService := cart.NewService(txRunner, cartRepo, productRepo)
-	cartHandler := cart.NewHandler(cartService)
-	cartRouter := cart.NewRouter(cartHandler)
-	cartRouter.MapRoutes(v1.Group("/carts"))
+	// // cart
+	// cartRepo := cart.NewPostgresRepository()
+	// cartService := cart.NewService(txRunner, cartRepo, productRepo)
+	// cartHandler := cart.NewHandler(cartService)
+	// cartRouter := cart.NewRouter(cartHandler)
+	// cartRouter.MapRoutes(v1.Group("/carts"))
 
-	// order
-	orderRepo := order.NewPostgresRepository()
-	orderService := order.NewService(txRunner, orderRepo)
-	orderHandler := order.NewHandler(orderService)
-	orderRouter := order.NewRouter(orderHandler)
-	orderRouter.MapRoutes(v1.Group("/orders"))
+	// // order
+	// orderRepo := order.NewPostgresRepository()
+	// orderService := order.NewService(txRunner, orderRepo)
+	// orderHandler := order.NewHandler(orderService)
+	// orderRouter := order.NewRouter(orderHandler)
+	// orderRouter.MapRoutes(v1.Group("/orders"))
 
 	// // checkout
 	// checkoutService := checkout.NewService(app.db.GetPool(), orderRepo, cartRepo)

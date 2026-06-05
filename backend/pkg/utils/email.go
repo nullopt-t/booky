@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 func GenerateOTP() (string, error) {
@@ -13,4 +14,12 @@ func GenerateOTP() (string, error) {
 	}
 
 	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+func IsValidPhone(phone string) bool {
+	return len(phone) >= 10 && len(phone) <= 15
+}
+
+func IsValidEmail(email string) bool {
+	return strings.Contains(email, "@")
 }

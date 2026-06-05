@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
         email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
     ),
     email_otp TEXT NULL,
-    email_opt_expires_at TIMESTAMPTZ NULL,
+    email_otp_expires_at TIMESTAMPTZ NULL,
     email_otp_attempts INT DEFAULT 0,
     is_email_verified BOOLEAN DEFAULT FALSE,
 
