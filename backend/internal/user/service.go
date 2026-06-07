@@ -5,7 +5,7 @@ import (
 	"booky-backend/pkg/api"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/database"
-	"booky-backend/pkg/logger"
+	"booky-backend/pkg/log"
 	"booky-backend/pkg/utils"
 	"context"
 	"errors"
@@ -116,12 +116,18 @@ type UserService interface {
 type Service struct {
 	dbExecuter database.Runner
 	repo       UserRepository
+	logger     log.Logger
 }
 
-func NewService(dbExecuter database.Runner, repo UserRepository) *Service {
+func NewService(
+	dbExecuter database.Runner,
+	repo UserRepository,
+	logger log.Logger,
+) *Service {
 	return &Service{
 		dbExecuter: dbExecuter,
 		repo:       repo,
+		logger:     logger,
 	}
 }
 
@@ -265,16 +271,6 @@ func (s *Service) GetUserByEmail(
 			return nil
 		},
 	)
-
-	logger.Log(
-		logger.DEBUG,
-		"service: GetUserByEmail",
-		logger.LMeta{
-			"user": existedUser,
-			"err":  err,
-		},
-	)
-
 	return existedUser, err
 }
 
@@ -396,7 +392,7 @@ func (s *Service) ResendPhoneOTP(
 	return s.dbExecuter.WithDB(
 		ctx,
 		func(db database.QueryExecutor) error {
-			logger.Log(logger.DEBUG, "fetching user data...")
+			s.logger.Debug("resending phone otp")
 			user, err := s.repo.GetUserByID(
 				ctx,
 				db,
@@ -425,22 +421,14 @@ func (s *Service) ResendPhoneOTP(
 				}
 			}
 
-			logger.Log(
-				logger.DEBUG,
-				"fetched user data",
-				logger.LMeta{
-					"user": user,
-				},
-			)
-
 			if user.PhoneOTPExpiresAt != nil &&
 				user.PhoneOTPExpiresAt.After(time.Now().Add(time.Minute*2)) {
-				logger.Log(logger.DEBUG, "sending db otp")
+				s.logger.Debug("sending saved otp")
 				// send the saved otp
 				return nil
 			}
 
-			logger.Log(logger.DEBUG, "generating otp...")
+			s.logger.Debug("generating otp...")
 			otp, err := utils.GenerateOTP()
 			if err != nil {
 				return security.NewSecureError(
@@ -451,10 +439,9 @@ func (s *Service) ResendPhoneOTP(
 				)
 			}
 
-			logger.Log(
-				logger.DEBUG,
+			s.logger.Debug(
 				"otp generated",
-				logger.LMeta{
+				log.Meta{
 					"OTP": otp,
 				},
 			)
@@ -475,8 +462,7 @@ func (s *Service) ResendPhoneOTP(
 				)
 			}
 
-			logger.Log(
-				logger.DEBUG,
+			s.logger.Debug(
 				"sending SMS",
 			)
 
@@ -563,7 +549,7 @@ func (s *Service) ResendEmailOTP(
 	userID uuid.UUID,
 ) error {
 	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		logger.Log(logger.DEBUG, "fetching user data...")
+		s.logger.Debug("fetching user data...")
 		user, err := s.repo.GetUserByID(
 			ctx,
 			db,
@@ -578,22 +564,20 @@ func (s *Service) ResendEmailOTP(
 			)
 		}
 
-		logger.Log(
-			logger.DEBUG,
-			"fetched user data",
-			logger.LMeta{
+		s.logger.Debug("fetched user data",
+			log.Meta{
 				"user": user,
 			},
 		)
 
 		if user.EmailOTPExpiresAt != nil &&
 			user.EmailOTPExpiresAt.After(time.Now().Add(time.Minute*2)) {
-			logger.Log(logger.DEBUG, "sending db otp")
+			s.logger.Debug("sending db otp")
 			// send the saved otp
 			return nil
 		}
 
-		logger.Log(logger.DEBUG, "generating otp...")
+		s.logger.Debug("generating otp...")
 		otp, err := utils.GenerateOTP()
 		if err != nil {
 			return security.NewSecureError(
@@ -604,10 +588,8 @@ func (s *Service) ResendEmailOTP(
 			)
 		}
 
-		logger.Log(
-			logger.DEBUG,
-			"otp generated",
-			logger.LMeta{
+		s.logger.Debug("otp generated",
+			log.Meta{
 				"OTP": otp,
 			},
 		)
@@ -628,10 +610,7 @@ func (s *Service) ResendEmailOTP(
 			)
 		}
 
-		logger.Log(
-			logger.DEBUG,
-			"sending SMS",
-		)
+		s.logger.Debug("sending SMS")
 
 		// send email with the new otp
 		return nil

@@ -2,7 +2,9 @@ package security
 
 import (
 	"booky-backend/pkg/api"
-	"log/slog"
+	"runtime"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -22,12 +24,36 @@ const (
 	CodeUnauthorized = "UNAUTHORIZED"
 )
 
+func stack() string {
+	pc := make([]uintptr, 50)
+	n := runtime.Callers(3, pc)
+
+	frames := runtime.CallersFrames(pc[:n])
+
+	var b strings.Builder
+
+	for {
+		frame, more := frames.Next()
+		b.WriteString(frame.File)
+		b.WriteString(":")
+		b.WriteString(strconv.Itoa(frame.Line))
+		b.WriteString("\n")
+
+		if !more {
+			break
+		}
+	}
+
+	return b.String()
+}
+
 type SecureError struct {
 	Status   int
 	Code     string
 	UserMsg  string
 	Internal error
 	Fields   []api.FieldError
+	Stack    string
 	MetaData map[string]any
 }
 
@@ -37,15 +63,6 @@ func (se *SecureError) Error() string {
 
 func (se *SecureError) Unwrap() error {
 	return se.Internal
-}
-
-func (se *SecureError) LogMessage() string {
-	return slog.GroupValue(
-		slog.String("code", se.Code),
-		slog.String("message", se.UserMsg),
-		slog.Any("meta", se.MetaData),
-		slog.Any("internal", se.Internal),
-	).String()
 }
 
 func NewSecureError(
@@ -59,6 +76,7 @@ func NewSecureError(
 		Code:     code,
 		UserMsg:  public,
 		Internal: internal,
+		Stack:    stack(),
 	}
 }
 

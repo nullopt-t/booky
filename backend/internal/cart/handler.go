@@ -46,7 +46,7 @@ func (h *Handler) GetCart(c *gin.Context) {
 	}
 	cart, total, err := h.service.GetCart(c.Request.Context(), userId)
 	if err != nil {
-		logger.Log(logger.ERROR, "get cart", logger.LMeta{"error": err})
+		logger.Log(logger.ERROR, "get cart", logger.Meta{"error": err})
 		switch err {
 		case context.Canceled:
 			c.JSON(http.StatusRequestTimeout, api.Error("CANCELED", err.Error()))
@@ -106,7 +106,7 @@ func (h *Handler) AddItem(c *gin.Context) {
 	logger.Log(logger.DEBUG, req.ItemID.String())
 	cart, err := h.service.AddItem(c.Request.Context(), userId, req)
 	if err != nil {
-		logger.Log(logger.ERROR, "add cart item", logger.LMeta{"error": err})
+		logger.Log(logger.ERROR, "add cart item", logger.Meta{"error": err})
 		switch err {
 		case context.Canceled:
 			c.JSON(http.StatusRequestTimeout, api.Error("CANCELED", err.Error()))

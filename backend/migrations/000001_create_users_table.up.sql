@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS users (
     phone_otp_expires_at TIMESTAMPTZ NULL,
     phone_otp_attempts INT DEFAULT 0,
     is_phone_verified BOOLEAN DEFAULT FALSE,
-    
+
     role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin', 'vendor')),
-    
+
     password_hash TEXT NOT NULL,
-    
+
     -- password resetting columns
     reset_token TEXT NULL,
 
@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- CREATE TABLE IF NOT EXISTS otps (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     user_id UUID REFERENCES users(id),
+--     otp TEXT NOT NULL,
+--     type TEXT DEFAULT "email" CHECK( type IN('email', 'phon')),
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- )
+
 -- CREATE INDEX users_active_idx ON users(id)
 -- WHERE is_inactive = false
 --     AND deleted_at IS NULL;

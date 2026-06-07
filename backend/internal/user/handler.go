@@ -7,7 +7,6 @@ import (
 	"booky-backend/pkg/api"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
-	"booky-backend/pkg/logger"
 	"booky-backend/pkg/utils/jwt"
 	"encoding/json"
 	"errors"
@@ -19,6 +18,35 @@ import (
 	"github.com/google/uuid"
 )
 
+type GetAllUsersResponse struct {
+	Users []UserResponse `json:"users"`
+}
+
+type GetUserByEmailRequest struct {
+	Email string `json:"email"`
+}
+
+type RefreshTokenRequest struct {
+	Refresh_token string `json:"refresh_token"`
+}
+
+type RefreshTokenResponse struct {
+	AccessToken string `json:"access_token"`
+}
+
+type ForgetPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type VerifyResetTokenRequest struct {
+	Token       string `json:"token"`
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+type VerifyEmailOTPRequest struct {
+	Otp string `json:"otp"`
+}
 type UserURIParam struct {
 	UserID uuid.UUID `json:"id" validate:"required,uuid"`
 }
@@ -34,6 +62,30 @@ type UserResponse struct {
 	LockedUntil     *time.Time `json:"locked_unitl,omitzero"`
 	CreatedAt       time.Time  `json:"created_at,omitzero"`
 	UpdatedAt       time.Time  `json:"updated_at,omitzero"`
+}
+
+func ToUserResponse(user model.User) UserResponse {
+	return UserResponse{
+		ID:              user.ID,
+		Role:            string(user.Role),
+		Email:           user.Email,
+		IsEmailVerified: user.IsEmailVerified,
+		Phone:           user.Phone,
+		IsPhoneVerified: user.IsPhoneVerified,
+		IsInactive:      user.IsInactive,
+		LockedUntil:     user.LockedUntil,
+		CreatedAt:       user.CreatedAt,
+		UpdatedAt:       user.UpdatedAt,
+	}
+}
+
+func ToUserListResponse(users []model.User) GetAllUsersResponse {
+	var list GetAllUsersResponse
+	list.Users = make([]UserResponse, 0, len(users))
+	for _, user := range users {
+		list.Users = append(list.Users, ToUserResponse(user))
+	}
+	return list
 }
 
 type RegisterUserRequest struct {
@@ -68,44 +120,6 @@ func NewHandler(
 	}
 }
 
-func (h *Handler) handleError(
-	c *gin.Context,
-	err error,
-) {
-	if serr, ok := errors.AsType[*security.SecureError](err); ok {
-		logger.Log(
-			logger.ERROR,
-			serr.LogMessage(),
-			logger.LMeta{
-				"fields": serr.Fields,
-			},
-		)
-
-		c.JSON(
-			serr.Status,
-			api.ErrorResponse{
-				Code:    serr.Code,
-				Message: serr.Error(),
-				Details: serr.Fields,
-			},
-		)
-		return
-	}
-
-	logger.Log(
-		logger.ERROR,
-		err.Error(),
-	)
-
-	c.JSON(
-		http.StatusInternalServerError,
-		api.ErrorResponse{
-			Code:    "INTERNAL_ERROR",
-			Message: "internal error please try again later",
-		},
-	)
-}
-
 func (h *Handler) UserRegister(c *gin.Context) {
 	var req RegisterUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -117,19 +131,15 @@ func (h *Handler) UserRegister(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
-				security.NewSecureError(
-					http.StatusBadRequest,
-					security.CodeValidation,
-					"bad request data",
-					err,
-				).WithFields(fieldErrors),
-			)
+			c.Error(security.NewSecureError(
+				http.StatusBadRequest,
+				security.CodeValidation,
+				"bad request data",
+				err,
+			).WithFields(fieldErrors))
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -145,7 +155,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		req,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -154,7 +164,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		userID,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -165,7 +175,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		},
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -176,7 +186,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		jwt.AccessTokenType,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -201,8 +211,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -212,8 +221,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -226,8 +234,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 
 	if (req.Email == nil) &&
 		(req.Phone == nil) {
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -252,17 +259,9 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		)
 	}
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
-
-	logger.Log(
-		logger.DEBUG,
-		"fetched user",
-		logger.LMeta{
-			"user": user,
-		},
-	)
 
 	err = h.service.CheckPassword(
 		c.Request.Context(),
@@ -270,7 +269,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		req.Password,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -281,7 +280,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		},
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -292,8 +291,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		jwt.AccessTokenType,
 	)
 	if err != nil {
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusInternalServerError,
 				security.CodeInternal,
@@ -311,8 +309,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		jwt.RefreshTokenType,
 	)
 	if err != nil {
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusInternalServerError,
 				security.CodeInternal,
@@ -345,8 +342,7 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -356,8 +352,7 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -373,7 +368,7 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 		uri.UserID,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -398,8 +393,25 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 func (h *Handler) GetAllUsers(c *gin.Context) {
 	var q api.PageQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		h.handleError(
-			c,
+		if ve, ok := errors.AsType[validator.ValidationErrors](err); ok && ve != nil {
+			fieldErrors := make([]api.FieldError, 0, len(ve))
+			for _, e := range ve {
+				fieldErrors = append(fieldErrors, api.FieldError{
+					Field: e.Field(),
+					Tags:  e.Tag(),
+				})
+			}
+			c.Error(
+				security.NewSecureError(
+					http.StatusBadRequest,
+					security.CodeValidation,
+					"bad request data",
+					err,
+				).WithFields(fieldErrors),
+			)
+			return
+		}
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -423,25 +435,14 @@ func (h *Handler) GetAllUsers(c *gin.Context) {
 		q,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
-	}
-
-	data := make([]UserResponse, 0, len(users))
-	for _, user := range users {
-		data = append(data, UserResponse{
-			ID:         user.ID,
-			Email:      user.Email,
-			IsInactive: user.IsInactive,
-			CreatedAt:  user.CreatedAt,
-			UpdatedAt:  user.UpdatedAt,
-		})
 	}
 
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
-			Data: data,
+			Data: ToUserListResponse(users),
 			Meta: page,
 		},
 	)
@@ -450,8 +451,25 @@ func (h *Handler) GetAllUsers(c *gin.Context) {
 func (h *Handler) DeleteUser(c *gin.Context) {
 	var uri UserURIParam
 	if err := c.ShouldBindUri(&uri); err != nil {
-		h.handleError(
-			c,
+		if ve, ok := errors.AsType[validator.ValidationErrors](err); ok && ve != nil {
+			fieldErrors := make([]api.FieldError, 0, len(ve))
+			for _, e := range ve {
+				fieldErrors = append(fieldErrors, api.FieldError{
+					Field: e.Field(),
+					Tags:  e.Tag(),
+				})
+			}
+			c.Error(
+				security.NewSecureError(
+					http.StatusBadRequest,
+					security.CodeValidation,
+					"bad request data",
+					err,
+				).WithFields(fieldErrors),
+			)
+			return
+		}
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -467,7 +485,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		uri.UserID,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -490,8 +508,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -501,8 +518,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -518,8 +534,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		h.config.JwtSecretKey,
 	)
 	if err != nil {
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusUnauthorized,
 				security.CodeAuth,
@@ -537,7 +552,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		jwt.AccessTokenType,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -562,8 +577,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -573,8 +587,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -591,7 +604,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 		req.Email,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -606,7 +619,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 			},
 		)
 		if err != nil {
-			h.handleError(c, err)
+			c.Error(err)
 			return
 		}
 
@@ -617,7 +630,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 			jwt.ResetPassTokenType,
 		)
 		if err != nil {
-			h.handleError(c, err)
+			c.Error(err)
 			return
 		}
 
@@ -638,16 +651,6 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 		}
 	}
 
-	logger.Log(
-		logger.INFO,
-		"token created",
-		logger.LMeta{
-			"hash":  resetToken,
-			"email": user.Email,
-			"id":    user.ID,
-		},
-	)
-
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
@@ -667,8 +670,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -678,8 +680,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -690,22 +691,12 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	logger.Log(
-		logger.DEBUG,
-		"verify password reset token",
-		logger.LMeta{
-			"token":        req.Token,
-			"old_password": req.OldPassword,
-			"new_password": req.NewPassword,
-		},
-	)
-
 	claims, err := jwt.VerifyToken(
 		req.Token,
 		h.config.JwtSecretKey,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -714,7 +705,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		[]byte(claims.Subject),
 		&subject,
 	); err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -723,7 +714,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		subject.UserID,
 		req.Token,
 	); err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -742,7 +733,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		subject.UserID,
 		req.OldPassword,
 	); err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -751,7 +742,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		subject.UserID,
 		req.NewPassword,
 	); err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -766,7 +757,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 func (h *Handler) GetMe(c *gin.Context) {
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -775,7 +766,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 		u.UserID,
 	)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -807,8 +798,7 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -818,8 +808,7 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -832,7 +821,7 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -841,7 +830,7 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 		u.UserID,
 		req.Otp,
 	); err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -856,7 +845,7 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 func (h *Handler) ResendEmailOTP(c *gin.Context) {
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -864,7 +853,7 @@ func (h *Handler) ResendEmailOTP(c *gin.Context) {
 		c.Request.Context(),
 		u.UserID)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -887,8 +876,7 @@ func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
 					Tags:  e.Tag(),
 				})
 			}
-			h.handleError(
-				c,
+			c.Error(
 				security.NewSecureError(
 					http.StatusBadRequest,
 					security.CodeValidation,
@@ -898,8 +886,7 @@ func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
 			)
 			return
 		}
-		h.handleError(
-			c,
+		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
@@ -912,7 +899,7 @@ func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
 
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -921,7 +908,7 @@ func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
 		u.UserID,
 		req.Otp,
 	); err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -936,7 +923,7 @@ func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
 func (h *Handler) ResendPhoneOTP(c *gin.Context) {
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -944,7 +931,7 @@ func (h *Handler) ResendPhoneOTP(c *gin.Context) {
 		c.Request.Context(),
 		u.UserID)
 	if err != nil {
-		h.handleError(c, err)
+		c.Error(err)
 		return
 	}
 

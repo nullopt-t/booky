@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,4 +39,21 @@ type User struct {
 	DeletedAt           *time.Time
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+}
+
+func (u *User) IsAdmin() bool {
+	return u.Role == AdminRole
+}
+
+func (u *User) IsVendor() bool {
+	return u.Role == VendorRole
+}
+
+func (u *User) IsCustomer() bool {
+	return u.Role == CustomerRole
+}
+
+func (u *User) String() string {
+	return fmt.Sprintf(`user{id=%s, email=%s, role=%s}`,
+		u.ID, *u.Email, u.Role)
 }

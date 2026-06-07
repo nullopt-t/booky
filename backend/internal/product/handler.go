@@ -18,7 +18,7 @@ type ProudctService interface {
 	GetByID(ctx context.Context, productID uuid.UUID) (*model.Product, error)
 	GetAll(ctx context.Context, q api.PageQuery) ([]*model.Product, *api.Page, error)
 	CreateCategory(ctx context.Context, name string) (*model.ProductCategory, error)
-	GetAllCategories(ctx context.Context, q* api.PageQuery) ([]*model.ProductCategory, *api.Page, error)
+	GetAllCategories(ctx context.Context, q *api.PageQuery) ([]*model.ProductCategory, *api.Page, error)
 }
 
 type Handler struct {
@@ -148,7 +148,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	}
 	category, err := h.service.CreateCategory(c.Request.Context(), req.Name)
 	if err != nil {
-		logger.Log(logger.ERROR, "get cart", logger.LMeta{"error": err})
+		logger.Log(logger.ERROR, "get cart", logger.Meta{"error": err})
 		switch err {
 		case context.Canceled:
 			c.JSON(http.StatusRequestTimeout, api.Error("CANCELED", err.Error()))

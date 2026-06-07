@@ -3,15 +3,17 @@ package app
 import (
 	// "booky-backend/internal/cart"
 	"booky-backend/internal/http/swagger"
+	"booky-backend/internal/middleware"
+
 	// "booky-backend/internal/inventory"
 	// "booky-backend/internal/product"
 	"booky-backend/internal/user"
-	"booky-backend/pkg/logger"
 
 	// "booky-backend/internal/checkout"
 	// "booky-backend/internal/order"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
+	"booky-backend/pkg/log"
 	"context"
 	"fmt"
 	"net/http"
@@ -29,11 +31,17 @@ type App struct {
 	// http server
 	server *http.Server
 
+	// logger
+	logger *log.ConsoleLogger
+
 	// database
 	db *database.DB
 }
 
-func (app *App) initHandlers(config *config.Config, router *gin.Engine) {
+func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
+	// setup middlewares
+	router.Use(middleware.ErrorHandler(app.logger))
+
 	v1 := router.Group("/api/v1")
 	swagger.SetUpDocs(v1)
 
@@ -41,7 +49,7 @@ func (app *App) initHandlers(config *config.Config, router *gin.Engine) {
 
 	// user
 	userRepo := user.NewPostgresRepository()
-	userService := user.NewService(txRunner, userRepo)
+	userService := user.NewService(txRunner, userRepo, app.logger)
 	userHandler := user.NewHandler(userService, config)
 	userRouter := user.NewRouter(userHandler, config)
 	userRouter.MapRoutes(v1)
@@ -81,7 +89,10 @@ func (app *App) initHandlers(config *config.Config, router *gin.Engine) {
 }
 
 func (app *App) Shutdown() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		5*time.Second,
+	)
 	defer cancel()
 
 	if app.server != nil {
@@ -92,32 +103,49 @@ func (app *App) Shutdown() {
 		app.db.Close()
 	}
 
-	logger.Log(logger.DEBUG, "Graceful Shutdown")
+	app.logger.Debug("Graceful Shutdown")
 }
 
 func (app *App) Run() error {
 	cfg := config.Load()
 
+	app.logger = log.NewConsoleLogger()
+
 	var err error
 	app.db, err = database.ConnectDB(context.Background(), cfg)
 	if err != nil {
+		app.logger.Error(
+			"database connection issue",
+			log.Meta{
+				"Error": err.Error(),
+			},
+		)
 		return err
 	}
 
 	if err := app.db.Ping(context.Background()); err != nil {
-		logger.Log(logger.WARN, "database is not live", logger.LMeta{
-			"Error": err.Error(),
-		})
+		app.logger.Warn(
+			"database is not live",
+			log.Meta{
+				"Error": err.Error(),
+			},
+		)
 	}
 
 	router := gin.Default()
-	app.initHandlers(cfg, router)
+	app.setupRoutes(cfg, router)
 
 	app.server = &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.SvPort),
 		Handler: router,
 	}
 
-	logger.Log(logger.DEBUG, fmt.Sprintf("Server started on port %s", cfg.SvPort))
+	app.logger.Info(
+		"Server started",
+		log.Meta{
+			"URL":  fmt.Sprintf("http://localhost:%s", cfg.SvPort),
+			"Port": cfg.SvPort,
+		},
+	)
 	return app.server.ListenAndServe()
 }
