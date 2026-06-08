@@ -1,9 +1,9 @@
 package otp
 
 import (
+	"booky-backend/internal/model"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/log"
-	"booky-backend/pkg/utils"
 	"booky-backend/pkg/utils/jwt"
 	"context"
 	"fmt"
@@ -13,11 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
-const OTPLength = 6
-const OTPTTL = 5 * time.Minute
+const OTPTTL = 15 * time.Minute
 const OTPMaxRetries = 3
-const OTPKeyPrefix = "otp:"
-const OTPAttemptsKeyPrefix = "otp_attempts:"
 
 type OTPPurpose string
 
@@ -26,25 +23,41 @@ const (
 	OTPTypeReset OTPPurpose = "reset"
 )
 
-type Mialer interface {
-	SendOTP(userID uuid.UUID, otp string) error
+type Mailer interface {
+	SendOTP(
+		ctx context.Context,
+		to,
+		otp string,
+	) error
+}
+
+type UserService interface {
+	GetUserByID(
+		ctx context.Context,
+		id uuid.UUID,
+	) (*model.User, error)
 }
 
 type Service struct {
-	otpRepo OTPRepository
-	logger  log.Logger
-	mailer  Mialer
+	otpRepo     OTPRepository
+	userService UserService
+	otpGen      OTPGenerator
+	logger      log.Logger
+	mailer      Mailer
 }
 
 func NewService(
-	repo OTPRepository,
+	otpRepo OTPRepository,
+	userService UserService,
 	logger log.Logger,
-	mailer Mialer,
+	mailer Mailer,
 ) *Service {
 	return &Service{
-		otpRepo: repo,
-		logger:  logger,
-		mailer:  mailer,
+		otpRepo:     otpRepo,
+		userService: userService,
+		otpGen:      NewGenerator(),
+		logger:      logger,
+		mailer:      mailer,
 	}
 }
 
@@ -57,44 +70,84 @@ func invalidOTP() error {
 	)
 }
 
-func (s *Service) generateOTP() (string, error) {
-	otp, err := utils.GenerateOTP(OTPLength)
+func (s *Service) GenerateOTP(
+	ctx context.Context,
+	userID uuid.UUID,
+	purpose string,
+) (string, error) {
+	otp, err := s.otpGen.GenerateOTP(purpose)
 	if err != nil {
+		return "", err
+	}
+
+	key := fmt.Sprintf("%s:%s",
+		purpose,
+		userID,
+	)
+
+	otpHash := jwt.Hash(otp)
+	if err := s.otpRepo.Save(
+		ctx,
+		key,
+		otpHash,
+		OTPTTL,
+	); err != nil {
 		return "", err
 	}
 	return otp, nil
 }
 
-func (s *Service) GenerateOTP(
+func (s *Service) SendOTP(
 	ctx context.Context,
 	userID uuid.UUID,
-	otpType OTPPurpose) (string, error) {
-	otp, err := s.generateOTP()
+	purpose string,
+) error {
+	user, err := s.userService.GetUserByID(
+		ctx,
+		userID,
+	)
 	if err != nil {
-		return "", err
+		return err
 	}
-	key := fmt.Sprintf("%s:%s", otpType, userID)
-	if err := s.otpRepo.Save(ctx, key, otp, OTPTTL); err != nil {
-		return "", err
+
+	otp, err := s.GenerateOTP(
+		ctx,
+		userID,
+		purpose,
+	)
+	if err != nil {
+		return err
 	}
-	if err := s.mailer.SendOTP(userID, otp); err != nil {
-		return "", err
+
+	if err := s.mailer.SendOTP(
+		ctx,
+		*user.Email,
+		otp,
+	); err != nil {
+		return err
 	}
-	return otp, nil
+
+	return nil
 }
 
 func (s *Service) VerifyOTP(
 	ctx context.Context,
 	userID uuid.UUID,
-	otpType OTPPurpose,
+	purpose string,
 	otp string,
 ) error {
-	key := fmt.Sprintf("%s:%s", otpType, userID)
+	key := fmt.Sprintf("%s:%s",
+		purpose,
+		userID,
+	)
 	s.logger.Debug(
 		"fetching otp hash....",
 		log.Meta{"key": key},
 	)
-	value, err := s.otpRepo.Get(ctx, key)
+	value, err := s.otpRepo.Get(
+		ctx,
+		key,
+	)
 	if err != nil {
 		s.logger.Error(
 			"failed to fetch otp hash",
@@ -114,7 +167,11 @@ func (s *Service) VerifyOTP(
 
 	s.logger.Debug(
 		"comparing otp hash",
-		log.Meta{"key": key},
+		log.Meta{
+			"key":   key,
+			"otp":   otp,
+			"value": value,
+		},
 	)
 
 	if value != jwt.Hash(otp) {
@@ -126,7 +183,12 @@ func (s *Service) VerifyOTP(
 	)
 	err = s.otpRepo.Delete(ctx, key)
 	if err != nil {
-		return err
+		s.logger.Warn(
+			"failed to delete otp",
+			log.Meta{
+				"key": key,
+			},
+		)
 	}
 	s.logger.Debug(
 		"otp deleted successfully",
@@ -138,33 +200,41 @@ func (s *Service) VerifyOTP(
 func (s *Service) ResendOTP(
 	ctx context.Context,
 	userID uuid.UUID,
-	otpType OTPPurpose,
+	purpose string,
 ) error {
-	otp, err := s.generateOTP()
+	user, err := s.userService.GetUserByID(
+		ctx,
+		userID,
+	)
 	if err != nil {
 		return err
 	}
-	optHash := jwt.Hash(otp)
-	key := fmt.Sprintf("%s:%s", otpType, userID)
-	err = s.otpRepo.Save(ctx, key, optHash, OTPTTL)
-	if err != nil {
-		return err
-	}
-	if err := s.mailer.SendOTP(userID, otp); err != nil {
-		return err
-	}
-	return nil
-}
 
-func (s *Service) RevokeOTP(
-	ctx context.Context,
-	userID uuid.UUID,
-	otpType OTPPurpose,
-) error {
-	key := fmt.Sprintf("%s:%s", otpType, userID)
-	err := s.otpRepo.Delete(ctx, key)
+	otp, err := s.otpGen.GenerateOTP(purpose)
 	if err != nil {
 		return err
 	}
+
+	optHash := jwt.Hash(otp)
+	key := fmt.Sprintf("%s:%s",
+		purpose,
+		userID,
+	)
+	err = s.otpRepo.Save(
+		ctx,
+		key,
+		optHash,
+		OTPTTL,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := s.mailer.SendOTP(ctx,
+		*user.Email,
+		otp); err != nil {
+		return err
+	}
+
 	return nil
 }

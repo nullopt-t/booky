@@ -11,6 +11,5 @@ func GenerateOTP(length int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return fmt.Sprintf("%0*d", length, n.Int64()), nil
 }
