@@ -3,8 +3,9 @@ package middleware
 import (
 	"booky-backend/internal/model"
 	"booky-backend/internal/shared/token"
-	"booky-backend/pkg/api"
+	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
+	"booky-backend/pkg/log"
 	"booky-backend/pkg/utils/jwt"
 	"encoding/json"
 	"errors"
@@ -51,23 +52,27 @@ func Authorize(requiredRole model.UserRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, err := GetUserWithContext(c)
 		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.ErrorResponse{
-					Code:    "INVALID_USER",
-					Message: err.Error(),
-				},
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"INVALID_USER",
+					"invalid user",
+					err,
+				),
 			)
+			c.Abort()
 			return
 		}
 		if user.UserRole != requiredRole {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.ErrorResponse{
-					Code:    "FORBIDDEN",
-					Message: "no permission",
-				},
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"FORBIDDEN",
+					"no permission",
+					nil,
+				),
 			)
+			c.Abort()
 			return
 		}
 
@@ -80,24 +85,28 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 
 		if authHeader == "" {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.ErrorResponse{
-					Code:    "MISSING_AUTH_HEADER",
-					Message: "authorization header is required",
-				},
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"MISSING_AUTH_HEADER",
+					"authorization header is required",
+					nil,
+				),
 			)
+			c.Abort()
 			return
 		}
 
 		if !strings.HasPrefix(authHeader, prefix) {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.ErrorResponse{
-					Code:    "INVALID_AUTH_FORMAT",
-					Message: "authorization header must use Bearer scheme",
-				},
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"INVALID_AUTH_FORMAT",
+					"authorization header must use Bearer scheme",
+					nil,
+				),
 			)
+			c.Abort()
 			return
 		}
 
@@ -109,30 +118,67 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.ErrorResponse{
-					Code:    "INVALID_TOKEN",
-					Message: err.Error(),
-				},
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"INVALID_TOKEN",
+					"invalid or expired token",
+					err,
+				),
 			)
+			c.Abort()
 			return
 		}
 
 		var userSubject token.UserSubject
 		if err := json.Unmarshal([]byte(claims.Subject), &userSubject); err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusUnauthorized,
-				api.ErrorResponse{
-					Code:    "INVALID_TOKEN",
-					Message: err.Error(),
-				},
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"INVALID_TOKEN_SUBJECT",
+					"invalid token subject",
+					err,
+				),
 			)
+			c.Abort()
 			return
 		}
 
 		c.Set("user", userSubject)
 		c.Set("claims", claims)
+		c.Next()
+	}
+}
+
+func IsEmailVerified(logger log.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, err := GetUserWithContext(c)
+		if err != nil {
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"UNAUTHORIZED",
+					"user not authenticated",
+					err,
+				),
+			)
+			c.Abort()
+			return
+		}
+
+		if !user.IsEmailVerified {
+			c.Error(
+				security.NewSecureError(
+					http.StatusUnauthorized,
+					"UNAUTHORIZED",
+					"user not authenticated: email not verified",
+					nil,
+				),
+			)
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }

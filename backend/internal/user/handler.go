@@ -18,6 +18,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	emailOTPPrefix = "email"
+	phoneOTPPrefix = "phone"
+)
+
 type GetAllUsersResponse struct {
 	Users []UserResponse `json:"users"`
 }
@@ -106,17 +111,20 @@ type LoginUserRequest struct {
 }
 
 type Handler struct {
-	service UserService
-	config  *config.Config
+	userService UserService
+	otpService  OTPService
+	config      *config.Config
 }
 
 func NewHandler(
-	service UserService,
+	userService UserService,
+	otpService OTPService,
 	config *config.Config,
 ) *Handler {
 	return &Handler{
-		service: service,
-		config:  config,
+		userService: userService,
+		otpService:  otpService,
+		config:      config,
 	}
 }
 
@@ -150,7 +158,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	userID, err := h.service.CreateUser(
+	userID, err := h.userService.CreateUser(
 		c.Request.Context(),
 		req,
 	)
@@ -159,7 +167,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUserByID(
+	user, err := h.userService.GetUserByID(
 		c.Request.Context(),
 		userID,
 	)
@@ -168,10 +176,21 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
+	err = h.otpService.SendOTP(
+		c.Request.Context(),
+		userID,
+		"register",
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
 	subject, err := json.Marshal(
 		token.UserSubject{
-			UserID:   user.ID,
-			UserRole: user.Role,
+			UserID:          user.ID,
+			UserRole:        user.Role,
+			IsEmailVerified: user.IsEmailVerified,
 		},
 	)
 	if err != nil {
@@ -248,12 +267,12 @@ func (h *Handler) UserLogin(c *gin.Context) {
 	var user *model.User
 	var err error
 	if req.Email != nil {
-		user, err = h.service.GetUserByEmail(
+		user, err = h.userService.GetUserByEmail(
 			c.Request.Context(),
 			*req.Email,
 		)
 	} else {
-		user, err = h.service.GetUserByPhone(
+		user, err = h.userService.GetUserByPhone(
 			c.Request.Context(),
 			*req.Phone,
 		)
@@ -263,7 +282,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 		return
 	}
 
-	err = h.service.CheckPassword(
+	err = h.userService.CheckPassword(
 		c.Request.Context(),
 		user.ID,
 		req.Password,
@@ -275,8 +294,9 @@ func (h *Handler) UserLogin(c *gin.Context) {
 
 	subject, err := json.Marshal(
 		token.UserSubject{
-			UserID:   user.ID,
-			UserRole: user.Role,
+			UserID:          user.ID,
+			UserRole:        user.Role,
+			IsEmailVerified: user.IsEmailVerified,
 		},
 	)
 	if err != nil {
@@ -363,7 +383,7 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUserByID(
+	user, err := h.userService.GetUserByID(
 		c.Request.Context(),
 		uri.UserID,
 	)
@@ -430,7 +450,7 @@ func (h *Handler) GetAllUsers(c *gin.Context) {
 		q.Page = 1
 	}
 
-	users, page, err := h.service.GetAllUsers(
+	users, page, err := h.userService.GetAllUsers(
 		c.Request.Context(),
 		q,
 	)
@@ -480,7 +500,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	err := h.service.DeleteUserByID(
+	err := h.userService.DeleteUserByID(
 		c.Request.Context(),
 		uri.UserID,
 	)
@@ -538,7 +558,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 			security.NewSecureError(
 				http.StatusUnauthorized,
 				security.CodeAuth,
-				"invalid refresh token",
+				"invalid or expired refresh token",
 				err,
 			),
 		)
@@ -599,7 +619,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 	}
 
 	/// check user exists by email
-	user, err := h.service.GetUserByEmail(
+	user, err := h.userService.GetUserByEmail(
 		c.Request.Context(),
 		req.Email,
 	)
@@ -634,7 +654,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 			return
 		}
 
-		err = h.service.SetResetToken(
+		err = h.userService.SetResetToken(
 			c.Request.Context(),
 			user.ID,
 			resetToken,
@@ -709,7 +729,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.CheckPasswordResetToken(
+	if err := h.userService.CheckPasswordResetToken(
 		c.Request.Context(),
 		subject.UserID,
 		req.Token,
@@ -719,16 +739,18 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 	}
 
 	if claims.ExpiresAt.Before(time.Now()) {
-		c.JSON(http.StatusBadRequest,
-			api.ErrorResponse{
-				Code:    "EXPIRED_TOKEN",
-				Message: "expired reset token",
-			},
+		c.Error(
+			security.NewSecureError(
+				http.StatusBadRequest,
+				security.CodeValidation,
+				"expired reset token",
+				nil,
+			),
 		)
 		return
 	}
 
-	if err := h.service.CheckPassword(
+	if err := h.userService.CheckPassword(
 		c.Request.Context(),
 		subject.UserID,
 		req.OldPassword,
@@ -737,7 +759,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdatePassword(
+	if err := h.userService.UpdatePassword(
 		c.Request.Context(),
 		subject.UserID,
 		req.NewPassword,
@@ -761,7 +783,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUserByID(
+	user, err := h.userService.GetUserByID(
 		c.Request.Context(),
 		u.UserID,
 	)
@@ -825,10 +847,31 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.VerifyEmailOTP(
+	if u.IsEmailVerified {
+		c.Error(
+			security.NewSecureError(
+				http.StatusBadRequest,
+				security.CodeValidation,
+				"email already verified",
+				nil,
+			),
+		)
+		return
+	}
+
+	if err := h.otpService.VerifyOTP(
 		c.Request.Context(),
 		u.UserID,
+		"register",
 		req.Otp,
+	); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.userService.VerifyUserEmail(
+		c.Request.Context(),
+		u.UserID,
 	); err != nil {
 		c.Error(err)
 		return
@@ -849,87 +892,23 @@ func (h *Handler) ResendEmailOTP(c *gin.Context) {
 		return
 	}
 
-	err = h.service.ResendEmailOTP(
-		c.Request.Context(),
-		u.UserID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.JSON(
-		http.StatusOK,
-		api.SuccessResponse{
-			Message: "email sent successfully",
-		},
-	)
-}
-
-func (h *Handler) VerifyPhoneOTP(c *gin.Context) {
-	var req VerifyEmailOTPRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		if ve, ok := errors.AsType[validator.ValidationErrors](err); ok && ve != nil {
-			fieldErrors := make([]api.FieldError, 0, len(ve))
-			for _, e := range ve {
-				fieldErrors = append(fieldErrors, api.FieldError{
-					Field: e.Field(),
-					Tags:  e.Tag(),
-				})
-			}
-			c.Error(
-				security.NewSecureError(
-					http.StatusBadRequest,
-					security.CodeValidation,
-					"bad request data",
-					err,
-				).WithFields(fieldErrors),
-			)
-			return
-		}
+	if u.IsEmailVerified {
 		c.Error(
 			security.NewSecureError(
 				http.StatusBadRequest,
 				security.CodeValidation,
-				"bad request data",
-				err,
+				"email already verified",
+				nil,
 			),
 		)
 		return
 	}
 
-	u, err := middleware.GetUserWithContext(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	if err := h.service.VerifyPhoneOTP(
+	err = h.otpService.SendOTP(
 		c.Request.Context(),
 		u.UserID,
-		req.Otp,
-	); err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.JSON(
-		http.StatusOK,
-		api.SuccessResponse{
-			Message: "email verified successfully",
-		},
+		"register",
 	)
-}
-
-func (h *Handler) ResendPhoneOTP(c *gin.Context) {
-	u, err := middleware.GetUserWithContext(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	err = h.service.ResendPhoneOTP(
-		c.Request.Context(),
-		u.UserID)
 	if err != nil {
 		c.Error(err)
 		return

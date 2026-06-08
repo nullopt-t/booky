@@ -18,11 +18,20 @@ import (
 
 const ResetTokenTTL = 15 * time.Minute
 
-var (
-	ErrInternalFailure    = errors.New("internal failure")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrUserAlreadyExisted = errors.New("user already existed")
-)
+type OTPService interface {
+	SendOTP(
+		ctx context.Context,
+		userID uuid.UUID,
+		purpose string,
+	) error
+
+	VerifyOTP(
+		ctx context.Context,
+		userID uuid.UUID,
+		purpose string,
+		otp string,
+	) error
+}
 
 type UserService interface {
 	CreateUser(
@@ -53,28 +62,6 @@ type UserService interface {
 	DeleteUserByID(
 		ctx context.Context,
 		userID uuid.UUID,
-	) error
-
-	ResendPhoneOTP(
-		ctx context.Context,
-		userID uuid.UUID,
-	) error
-
-	VerifyPhoneOTP(
-		ctx context.Context,
-		userID uuid.UUID,
-		otp string,
-	) error
-
-	ResendEmailOTP(
-		ctx context.Context,
-		userID uuid.UUID,
-	) error
-
-	VerifyEmailOTP(
-		ctx context.Context,
-		userID uuid.UUID,
-		otp string,
 	) error
 
 	CheckPassword(
@@ -110,6 +97,11 @@ type UserService interface {
 		ctx context.Context,
 		userID uuid.UUID,
 		duration time.Duration,
+	) error
+
+	VerifyUserEmail(
+		ctx context.Context,
+		userID uuid.UUID,
 	) error
 }
 
@@ -171,7 +163,7 @@ func (s *Service) CreateUser(
 					return security.NewSecureError(
 						http.StatusConflict,
 						security.CodeConflict,
-						ErrUserAlreadyExisted.Error(),
+						"user already exists",
 						err,
 					)
 				default:
@@ -385,293 +377,6 @@ func (s *Service) DeleteUserByID(
 	return nil
 }
 
-func (s *Service) ResendPhoneOTP(
-	ctx context.Context,
-	userID uuid.UUID,
-) error {
-	return s.dbExecuter.WithDB(
-		ctx,
-		func(db database.QueryExecutor) error {
-			s.logger.Debug("resending phone otp")
-			user, err := s.repo.GetUserByID(
-				ctx,
-				db,
-				userID,
-			)
-			if err != nil {
-				mappedErr := database.MapError(err)
-				switch {
-				case errors.Is(
-					mappedErr,
-					database.ErrNotFound,
-				):
-					return security.NewSecureError(
-						http.StatusNotFound,
-						security.CodeNotFound,
-						err.Error(),
-						err,
-					)
-				default:
-					return security.NewSecureError(
-						http.StatusInternalServerError,
-						security.CodeInternal,
-						"failed to fetch a user",
-						err,
-					)
-				}
-			}
-
-			if user.PhoneOTPExpiresAt != nil &&
-				user.PhoneOTPExpiresAt.After(time.Now().Add(time.Minute*2)) {
-				s.logger.Debug("sending saved otp")
-				// send the saved otp
-				return nil
-			}
-
-			s.logger.Debug("generating otp...")
-			otp, err := utils.GenerateOTP()
-			if err != nil {
-				return security.NewSecureError(
-					http.StatusInternalServerError,
-					security.CodeInternal,
-					"failed to generate otp",
-					err,
-				)
-			}
-
-			s.logger.Debug(
-				"otp generated",
-				log.Meta{
-					"OTP": otp,
-				},
-			)
-
-			err = s.repo.SetUserPhoneOTP(
-				ctx,
-				db,
-				userID,
-				otp,
-				time.Minute*5,
-			)
-			if err != nil {
-				return security.NewSecureError(
-					http.StatusInternalServerError,
-					security.CodeInternal,
-					"failed to set phone otp",
-					err,
-				)
-			}
-
-			s.logger.Debug(
-				"sending SMS",
-			)
-
-			// send sms with the new otp
-			return nil
-		},
-	)
-}
-
-func (s *Service) VerifyPhoneOTP(
-	ctx context.Context,
-	userID uuid.UUID,
-	otp string,
-) error {
-	return s.dbExecuter.WithDB(
-		ctx,
-		func(db database.QueryExecutor) error {
-			user, err := s.repo.GetUserByID(ctx, db, userID)
-			if err != nil {
-				mappedErr := database.MapError(err)
-				switch {
-				case errors.Is(
-					mappedErr,
-					database.ErrNotFound,
-				):
-					return security.NewSecureError(
-						http.StatusNotFound,
-						security.CodeNotFound,
-						err.Error(),
-						err,
-					)
-				default:
-					return security.NewSecureError(
-						http.StatusInternalServerError,
-						security.CodeInternal,
-						"failed to fetch a user",
-						err,
-					)
-				}
-			}
-
-			if user.IsPhoneVerified {
-				return security.NewSecureError(
-					http.StatusConflict,
-					security.CodeConflict,
-					"phone already verified",
-					errors.New("phone already verified"),
-				)
-			}
-
-			if strings.Compare(*user.EmailOTP, otp) != 0 {
-				return security.NewSecureError(
-					http.StatusUnauthorized,
-					security.CodeUnauthorized,
-					"invalid otp",
-					errors.New("invalid otp"),
-				)
-			}
-			err = s.repo.VerifyUserPhone(
-				ctx,
-				db,
-				*user.Phone,
-			)
-			if err != nil {
-				return security.NewSecureError(
-					http.StatusInternalServerError,
-					security.CodeInternal,
-					"failed to verify phone",
-					err,
-				)
-			}
-
-			return s.repo.ResetUserEmailOTP(
-				ctx,
-				db,
-				user.ID,
-			)
-		},
-	)
-}
-
-func (s *Service) ResendEmailOTP(
-	ctx context.Context,
-	userID uuid.UUID,
-) error {
-	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		s.logger.Debug("fetching user data...")
-		user, err := s.repo.GetUserByID(
-			ctx,
-			db,
-			userID,
-		)
-		if err != nil {
-			return security.NewSecureError(
-				http.StatusInternalServerError,
-				security.CodeInternal,
-				"failed to fetch a user",
-				err,
-			)
-		}
-
-		s.logger.Debug("fetched user data",
-			log.Meta{
-				"user": user,
-			},
-		)
-
-		if user.EmailOTPExpiresAt != nil &&
-			user.EmailOTPExpiresAt.After(time.Now().Add(time.Minute*2)) {
-			s.logger.Debug("sending db otp")
-			// send the saved otp
-			return nil
-		}
-
-		s.logger.Debug("generating otp...")
-		otp, err := utils.GenerateOTP()
-		if err != nil {
-			return security.NewSecureError(
-				http.StatusInternalServerError,
-				security.CodeInternal,
-				"failed to generate otp",
-				err,
-			)
-		}
-
-		s.logger.Debug("otp generated",
-			log.Meta{
-				"OTP": otp,
-			},
-		)
-
-		err = s.repo.SetUserEmailOTP(
-			ctx,
-			db,
-			userID,
-			otp,
-			time.Minute*5,
-		)
-		if err != nil {
-			return security.NewSecureError(
-				http.StatusInternalServerError,
-				security.CodeInternal,
-				"failed to set email otp",
-				err,
-			)
-		}
-
-		s.logger.Debug("sending SMS")
-
-		// send email with the new otp
-		return nil
-	})
-}
-
-func (s *Service) VerifyEmailOTP(
-	ctx context.Context,
-	userID uuid.UUID,
-	otp string,
-) error {
-	return s.dbExecuter.WithDB(
-		ctx,
-		func(db database.QueryExecutor) error {
-			user, err := s.repo.GetUserByID(
-				ctx,
-				db,
-				userID,
-			)
-			if err != nil {
-				return security.NewSecureError(
-					http.StatusInternalServerError,
-					security.CodeInternal,
-					"failed to fetch a user",
-					err,
-				)
-			}
-
-			if user.IsEmailVerified {
-				return security.NewSecureError(
-					http.StatusConflict,
-					security.CodeConflict,
-					"email already verified",
-					errors.New("email already verified"),
-				)
-			}
-
-			if strings.Compare(*user.EmailOTP, otp) != 0 {
-				return security.NewSecureError(
-					http.StatusUnauthorized,
-					security.CodeUnauthorized,
-					"invalid otp",
-					errors.New("invalid otp"),
-				)
-			}
-
-			if err = s.repo.VerifyUserEmail(
-				ctx,
-				db,
-				*user.Email); err != nil {
-				return err
-			}
-			return s.repo.ResetUserEmailOTP(
-				ctx,
-				db,
-				user.ID,
-			)
-		},
-	)
-}
-
 func (s *Service) CheckPassword(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -860,6 +565,38 @@ func (s *Service) LockTokenResetFor(
 			http.StatusInternalServerError,
 			security.CodeInternal,
 			"failed to lock token reset",
+			err,
+		)
+	}
+	return nil
+}
+
+func (s *Service) VerifyUserEmail(
+	ctx context.Context,
+	userID uuid.UUID,
+) error {
+	s.logger.Debug(
+		"VerifyUserEmail",
+		log.Meta{
+			"context": ctx,
+			"userID":  userID,
+		},
+	)
+	err := s.dbExecuter.WithDB(
+		ctx,
+		func(db database.QueryExecutor) error {
+			return s.repo.VerifyUserEmail(
+				ctx,
+				db,
+				userID,
+			)
+		},
+	)
+	if err != nil {
+		return security.NewSecureError(
+			http.StatusInternalServerError,
+			security.CodeInternal,
+			"failed to verify user email",
 			err,
 		)
 	}

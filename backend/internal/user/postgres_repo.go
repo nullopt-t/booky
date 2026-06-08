@@ -17,37 +17,6 @@ type CreateUserParams struct {
 	PasswordHash string
 }
 
-type OTPRepository interface {
-	// temporary
-	SetUserEmailOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-		otp string,
-		duration time.Duration,
-	) error
-
-	ResetUserEmailOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-	) error
-
-	SetUserPhoneOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-		otp string,
-		duration time.Duration,
-	) error
-
-	ResetUserPhoneOTP(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		userID uuid.UUID,
-	) error
-}
-
 type UserRepository interface {
 	CreateUser(
 		ctx context.Context,
@@ -85,12 +54,6 @@ type UserRepository interface {
 		q api.PageQuery,
 	) ([]model.User, api.Page, error)
 
-	VerifyUserEmail(
-		ctx context.Context,
-		qe database.QueryExecutor,
-		email string,
-	) error
-
 	VerifyUserPhone(
 		ctx context.Context,
 		qe database.QueryExecutor,
@@ -126,7 +89,11 @@ type UserRepository interface {
 		duration time.Duration,
 	) error
 
-	OTPRepository
+	VerifyUserEmail(
+		ctx context.Context,
+		qe database.QueryExecutor,
+		userID uuid.UUID,
+	) error
 }
 
 type PostgresRepository struct {
@@ -496,14 +463,14 @@ func (r *PostgresRepository) SetUserPhoneOTP(
 func (r *PostgresRepository) VerifyUserEmail(
 	ctx context.Context,
 	qe database.QueryExecutor,
-	email string,
+	userID uuid.UUID,
 ) error {
 	_, err := qe.Exec(ctx,
 		`
 		UPDATE users
 		SET is_email_verified = TRUE
-		WHERE email = $1 AND deleted_at IS NULL
-		`, email)
+		WHERE id = $1 AND deleted_at IS NULL
+		`, userID)
 	if err != nil {
 		return fmt.Errorf("failed to verify user email: %w", err)
 	}
