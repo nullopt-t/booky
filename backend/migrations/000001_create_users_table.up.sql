@@ -3,16 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     email CITEXT NOT NULL UNIQUE CHECK (
         email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
     ),
-    email_otp TEXT NULL,
-    email_otp_expires_at TIMESTAMPTZ NULL,
-    email_otp_attempts INT DEFAULT 0,
-    is_email_verified BOOLEAN DEFAULT FALSE,
-
     phone TEXT NULL,
-    phone_otp TEXT NULL,
-    phone_otp_expires_at TIMESTAMPTZ NULL,
-    phone_otp_attempts INT DEFAULT 0,
-    is_phone_verified BOOLEAN DEFAULT FALSE,
 
     role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin', 'vendor')),
 
@@ -32,14 +23,14 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- CREATE TABLE IF NOT EXISTS otps (
---     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
---     user_id UUID REFERENCES users(id),
---     otp TEXT NOT NULL,
---     type TEXT DEFAULT "email" CHECK( type IN('email', 'phon')),
---     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
---     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
--- )
+CREATE TABLE IF NOT EXISTS otps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    otp TEXT NOT NULL,
+    type TEXT DEFAULT "email" CHECK( type IN('email', 'phon')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
 
 -- CREATE INDEX users_active_idx ON users(id)
 -- WHERE is_inactive = false
