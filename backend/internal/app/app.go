@@ -4,6 +4,7 @@ import (
 	// "booky-backend/internal/cart"
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/middleware"
+	"booky-backend/internal/user/otp"
 
 	// "booky-backend/internal/inventory"
 	// "booky-backend/internal/product"
@@ -11,6 +12,7 @@ import (
 
 	// "booky-backend/internal/checkout"
 	// "booky-backend/internal/order"
+	"booky-backend/pkg/cache"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
 	"booky-backend/pkg/log"
@@ -34,8 +36,23 @@ type App struct {
 	// logger
 	logger *log.ConsoleLogger
 
+	// cache
+	cache cache.Cache
+
 	// database
 	db *database.DB
+}
+
+type MockMailer struct {
+	logger log.Logger
+}
+
+func (m *MockMailer) SendOTP(ctx context.Context, to, otp string) error {
+	m.logger.Debug("sending otp", log.Meta{
+		"to":  to,
+		"otp": otp,
+	})
+	return nil
 }
 
 func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
@@ -45,16 +62,20 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 	v1 := router.Group("/api/v1")
 	swagger.SetUpDocs(v1)
 
+	app.cache = cache.NewMemoryCache()
 	txRunner := database.NewTxRunner(app.db)
+
+	mockMailer := &MockMailer{logger: app.logger}
 
 	// user
 	userRepo := user.NewPostgresRepository()
 	userService := user.NewService(txRunner, userRepo, app.logger)
-	userHandler := user.NewHandler(userService, config)
+	otpRepo := otp.NewOTPRepository(app.cache, app.logger)
+	otpService := otp.NewService(otpRepo, userService, app.logger, mockMailer)
+	userHandler := user.NewHandler(userService, otpService, config)
 	userRouter := user.NewRouter(userHandler, config)
 	userRouter.MapRoutes(v1)
 
-	// inventory
 	// inventoryRepo := inventory.NewPostgresRepository()
 	// inventoryService := inventory.NewService(txRunner, inventoryRepo)
 	// inventoryHandler := inventory.NewHandler(inventoryService)

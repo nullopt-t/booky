@@ -43,14 +43,11 @@ type MemoryCache struct {
 	cache *cache.Cache
 }
 
-func NewMemoryCache(
-	defaultTTL,
-	cleanupInterval time.Duration,
-) *MemoryCache {
+func NewMemoryCache() *MemoryCache {
 	return &MemoryCache{
 		cache: cache.New(
-			defaultTTL,
-			cleanupInterval,
+			cache.DefaultExpiration,
+			cache.NoExpiration,
 		),
 	}
 }
@@ -77,14 +74,10 @@ func (mc *MemoryCache) Set(_ context.Context, key, value string, expiration time
 
 func (mc *MemoryCache) Delete(_ context.Context, key string) error {
 	mc.cache.Delete(key)
-	_, ok := mc.cache.Get(key)
-	if !ok {
-		return ErrDelFailed
-	}
 	return nil
 }
 
-func (mc *MemoryCache) Clear() error {
+func (mc *MemoryCache) Close(_ context.Context) error {
 	mc.cache.Flush()
 	return nil
 }

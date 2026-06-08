@@ -22,7 +22,7 @@ type TokenDuration time.Duration
 const (
 	RefreshTokenTTL   TokenDuration = TokenDuration(30 * 24 * time.Hour) // 30 days
 	AccessTokenTTL    TokenDuration = TokenDuration(15 * time.Minute)
-	ResetPassTokenTTL TokenDuration = TokenDuration(15 * time.Minute)
+	ResetPassTokenTTL TokenDuration = TokenDuration(48 * time.Hour)
 )
 
 type Claims struct {
