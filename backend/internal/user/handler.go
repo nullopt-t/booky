@@ -18,11 +18,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	emailOTPPrefix = "email"
-	phoneOTPPrefix = "phone"
-)
-
 type GetAllUsersResponse struct {
 	Users []UserResponse `json:"users"`
 }
@@ -32,7 +27,7 @@ type GetUserByEmailRequest struct {
 }
 
 type RefreshTokenRequest struct {
-	Refresh_token string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type RefreshTokenResponse struct {
@@ -49,9 +44,15 @@ type VerifyResetTokenRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
-type VerifyEmailOTPRequest struct {
-	Otp string `json:"otp"`
+type VerifyOTPRequest struct {
+	Purpose string `json:"purpose" binding:"required,oneof=email sms"`
+	Code    string `json:"code" binding:"required"`
 }
+
+type ResendOTPRequest struct {
+	Purpose string `json:"purpose" binding:"required,oneof=email sms"`
+}
+
 type UserURIParam struct {
 	UserID uuid.UUID `json:"id" validate:"required,uuid"`
 }
@@ -176,15 +177,11 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	err = h.otpService.SendOTP(
+	_ = h.otpService.SendOTP(
 		c.Request.Context(),
 		userID,
 		"register",
 	)
-	if err != nil {
-		c.Error(err)
-		return
-	}
 
 	subject, err := json.Marshal(
 		token.UserSubject{
@@ -550,7 +547,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	}
 
 	claims, err := jwt.VerifyToken(
-		req.Refresh_token,
+		req.RefreshToken,
 		h.config.JwtSecretKey,
 	)
 	if err != nil {
@@ -809,8 +806,8 @@ func (h *Handler) GetMe(c *gin.Context) {
 	)
 }
 
-func (h *Handler) VerifyEmailOTP(c *gin.Context) {
-	var req VerifyEmailOTPRequest
+func (h *Handler) VerifyOTP(c *gin.Context) {
+	var req VerifyOTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		if ve, ok := errors.AsType[validator.ValidationErrors](err); ok && ve != nil {
 			fieldErrors := make([]api.FieldError, 0, len(ve))
@@ -862,8 +859,8 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 	if err := h.otpService.VerifyOTP(
 		c.Request.Context(),
 		u.UserID,
-		"register",
-		req.Otp,
+		req.Purpose,
+		req.Code,
 	); err != nil {
 		c.Error(err)
 		return
@@ -885,29 +882,48 @@ func (h *Handler) VerifyEmailOTP(c *gin.Context) {
 	)
 }
 
-func (h *Handler) ResendEmailOTP(c *gin.Context) {
+func (h *Handler) ResendOTP(c *gin.Context) {
+	var req ResendOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		if ve, ok := errors.AsType[validator.ValidationErrors](err); ok && ve != nil {
+			fieldErrors := make([]api.FieldError, 0, len(ve))
+			for _, e := range ve {
+				fieldErrors = append(fieldErrors, api.FieldError{
+					Field: e.Field(),
+					Tags:  e.Tag(),
+				})
+			}
+			c.Error(
+				security.NewSecureError(
+					http.StatusBadRequest,
+					security.CodeValidation,
+					"bad request data",
+					err,
+				).WithFields(fieldErrors),
+			)
+			return
+		}
+		c.Error(
+			security.NewSecureError(
+				http.StatusBadRequest,
+				security.CodeValidation,
+				"bad request data",
+				err,
+			),
+		)
+		return
+	}
+
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	if u.IsEmailVerified {
-		c.Error(
-			security.NewSecureError(
-				http.StatusBadRequest,
-				security.CodeValidation,
-				"email already verified",
-				nil,
-			),
-		)
-		return
-	}
-
 	err = h.otpService.SendOTP(
 		c.Request.Context(),
 		u.UserID,
-		"register",
+		req.Purpose,
 	)
 	if err != nil {
 		c.Error(err)

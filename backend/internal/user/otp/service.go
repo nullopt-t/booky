@@ -31,6 +31,14 @@ type Mailer interface {
 	) error
 }
 
+type Sender interface {
+	SendSMS(
+		ctx context.Context,
+		to,
+		otp string,
+	) error
+}
+
 type UserService interface {
 	GetUserByID(
 		ctx context.Context,
@@ -44,6 +52,7 @@ type Service struct {
 	otpGen      OTPGenerator
 	logger      log.Logger
 	mailer      Mailer
+	sender      Sender
 }
 
 func NewService(
@@ -51,6 +60,7 @@ func NewService(
 	userService UserService,
 	logger log.Logger,
 	mailer Mailer,
+	sender Sender,
 ) *Service {
 	return &Service{
 		otpRepo:     otpRepo,
@@ -58,6 +68,7 @@ func NewService(
 		otpGen:      NewGenerator(),
 		logger:      logger,
 		mailer:      mailer,
+		sender:      sender,
 	}
 }
 
@@ -119,15 +130,24 @@ func (s *Service) SendOTP(
 		return err
 	}
 
-	if err := s.mailer.SendOTP(
-		ctx,
-		*user.Email,
-		otp,
-	); err != nil {
-		return err
+	switch purpose {
+	case "email":
+		err = s.mailer.SendOTP(
+			ctx,
+			*user.Email,
+			otp,
+		)
+	case "sms":
+		err = s.sender.SendSMS(
+			ctx,
+			*user.Phone,
+			otp,
+		)
+	default:
+		return fmt.Errorf("unsupported purpose: %s", purpose)
 	}
 
-	return nil
+	return err
 }
 
 func (s *Service) VerifyOTP(
@@ -136,18 +156,22 @@ func (s *Service) VerifyOTP(
 	purpose string,
 	otp string,
 ) error {
-	key := fmt.Sprintf("%s:%s",
+	var key string
+	key = fmt.Sprintf("%s:%s",
 		purpose,
 		userID,
 	)
+
 	s.logger.Debug(
 		"fetching otp hash....",
 		log.Meta{"key": key},
 	)
+
 	value, err := s.otpRepo.Get(
 		ctx,
 		key,
 	)
+
 	if err != nil {
 		s.logger.Error(
 			"failed to fetch otp hash",
@@ -190,7 +214,7 @@ func (s *Service) VerifyOTP(
 			},
 		)
 	}
-	s.logger.Debug(
+	s.logger.Info(
 		"otp deleted successfully",
 		log.Meta{"key": key},
 	)
@@ -230,11 +254,22 @@ func (s *Service) ResendOTP(
 		return err
 	}
 
-	if err := s.mailer.SendOTP(ctx,
-		*user.Email,
-		otp); err != nil {
-		return err
-	}
+	s.logger.Info(
+		"otp saved successfully",
+		log.Meta{"key": key},
+	)
 
-	return nil
+	switch purpose {
+	case "email":
+		err = s.mailer.SendOTP(ctx,
+			*user.Email,
+			otp)
+	case "phone":
+		err = s.mailer.SendOTP(ctx,
+			*user.Phone,
+			otp)
+	default:
+		return fmt.Errorf("unsupported purpose: %s", purpose)
+	}
+	return err
 }
