@@ -49,6 +49,9 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 	auth.GET("/me", r.handler.GetMe)
 
 	otp := vgroup.Group("/otp")
+	otp.Use(
+		middleware.Authanticate(r.config),
+	)
 	otp.POST("/verify", r.handler.VerifyOTP)
 	otp.POST("/resend", r.handler.ResendOTP)
 
