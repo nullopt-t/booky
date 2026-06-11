@@ -16,6 +16,7 @@ import (
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
 	"booky-backend/pkg/log"
+	"booky-backend/pkg/mail"
 	"context"
 	"fmt"
 	"net/http"
@@ -43,18 +44,6 @@ type App struct {
 	db *database.DB
 }
 
-type MockMailer struct {
-	logger log.Logger
-}
-
-func (m *MockMailer) SendOTP(ctx context.Context, to, otp string) error {
-	m.logger.Debug("sending otp", log.Meta{
-		"to":  to,
-		"otp": otp,
-	})
-	return nil
-}
-
 func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 	// setup middlewares
 	router.Use(middleware.ErrorHandler(app.logger))
@@ -65,13 +54,13 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 	app.cache = cache.NewMemoryCache()
 	txRunner := database.NewTxRunner(app.db)
 
-	mockMailer := &MockMailer{logger: app.logger}
+	mailer := mail.NewMailer()
 
 	// user
 	userRepo := user.NewPostgresRepository()
 	userService := user.NewService(txRunner, userRepo, app.logger)
 	otpRepo := otp.NewOTPRepository(app.cache, app.logger)
-	otpService := otp.NewService(otpRepo, userService, app.logger, mockMailer)
+	otpService := otp.NewService(otpRepo, userService, app.logger, mailer)
 	userHandler := user.NewHandler(userService, otpService, config)
 	userRouter := user.NewRouter(userHandler, config)
 	userRouter.MapRoutes(v1)

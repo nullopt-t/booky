@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const OTPTTL = 15 * time.Minute
+const OTPTTL = 60 * time.Minute
 const OTPMaxRetries = 3
 
 type OTPPurpose string
@@ -60,7 +60,7 @@ func NewService(
 	userService UserService,
 	logger log.Logger,
 	mailer Mailer,
-	sender Sender,
+	// sender Sender,
 ) *Service {
 	return &Service{
 		otpRepo:     otpRepo,
@@ -68,7 +68,7 @@ func NewService(
 		otpGen:      NewGenerator(),
 		logger:      logger,
 		mailer:      mailer,
-		sender:      sender,
+		// sender:      sender,
 	}
 }
 

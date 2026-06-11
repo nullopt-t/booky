@@ -9,6 +9,7 @@ import (
 	"booky-backend/pkg/utils/jwt"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -144,6 +145,7 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		fmt.Println("userSubject:", userSubject)
 		c.Set("user", userSubject)
 		c.Set("claims", claims)
 		c.Next()

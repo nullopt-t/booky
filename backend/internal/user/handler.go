@@ -177,11 +177,15 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	_ = h.otpService.SendOTP(
+	err = h.otpService.SendOTP(
 		c.Request.Context(),
 		userID,
 		"register",
 	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	subject, err := json.Marshal(
 		token.UserSubject{
@@ -195,7 +199,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	token, err := jwt.CreateToken(
+	accessToken, err := jwt.CreateToken(
 		string(subject),
 		h.config.JwtSecretKey,
 		jwt.AccessTokenTTL,
@@ -206,11 +210,23 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
+	refreshToken, err := jwt.CreateToken(
+		string(subject),
+		h.config.JwtSecretKey,
+		jwt.RefreshTokenTTL,
+		jwt.RefreshTokenType,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
 			Data: RegisterUserResponse{
-				AccessToken: token,
+				AccessToken:  accessToken,
+				RefreshToken: refreshToken,
 			},
 		},
 	)
@@ -841,18 +857,6 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	u, err := middleware.GetUserWithContext(c)
 	if err != nil {
 		c.Error(err)
-		return
-	}
-
-	if u.IsEmailVerified {
-		c.Error(
-			security.NewSecureError(
-				http.StatusBadRequest,
-				security.CodeValidation,
-				"email already verified",
-				nil,
-			),
-		)
 		return
 	}
 
