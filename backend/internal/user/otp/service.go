@@ -14,7 +14,11 @@ import (
 )
 
 const OTPTTL = 60 * time.Minute
-const OTPMaxRetries = 3
+
+const (
+	MaxRetriesPerHour = 4
+	MaxRetriesPerDay  = 20
+)
 
 type OTPPurpose string
 
@@ -46,29 +50,65 @@ type UserService interface {
 	) (*model.User, error)
 }
 
+type Generator interface {
+	GenerateOTP(
+		purpose string,
+	) (string, error)
+}
+
+type Store interface {
+	Save(
+		ctx context.Context,
+		key string,
+		otp OTP,
+		ttl time.Duration,
+	) error
+
+	Get(
+		ctx context.Context,
+		key string,
+	) (*OTP, error)
+
+	Increment(
+		ctx context.Context,
+		key string,
+	) error
+
+	Delete(
+		ctx context.Context,
+		key string,
+	) error
+}
+
+type RateLimiter interface {
+	AllowOTP(ctx context.Context, userID uuid.UUID) (bool, error)
+}
+
 type Service struct {
-	otpRepo     OTPRepository
-	userService UserService
-	otpGen      OTPGenerator
-	logger      log.Logger
-	mailer      Mailer
-	sender      Sender
+	store   Store
+	userSrv UserService
+	gen     Generator
+	limiter RateLimiter
+	logger  log.Logger
+	mailer  Mailer
+	sender  Sender
 }
 
 func NewService(
-	otpRepo OTPRepository,
-	userService UserService,
+	store Store,
+	gen Generator,
+	limiter RateLimiter,
+	userSrv UserService,
 	logger log.Logger,
 	mailer Mailer,
-	// sender Sender,
 ) *Service {
 	return &Service{
-		otpRepo:     otpRepo,
-		userService: userService,
-		otpGen:      NewGenerator(),
-		logger:      logger,
-		mailer:      mailer,
-		// sender:      sender,
+		store:   store,
+		userSrv: userSrv,
+		gen:     gen,
+		limiter: limiter,
+		logger:  logger,
+		mailer:  mailer,
 	}
 }
 
@@ -81,26 +121,33 @@ func invalidOTP() error {
 	)
 }
 
+func (s *Service) genKey(purpose string, userID uuid.UUID) string {
+	return fmt.Sprintf("%s:%s",
+		purpose,
+		userID,
+	)
+}
+
 func (s *Service) GenerateOTP(
 	ctx context.Context,
 	userID uuid.UUID,
 	purpose string,
 ) (string, error) {
-	otp, err := s.otpGen.GenerateOTP(purpose)
+	otp, err := s.gen.GenerateOTP(purpose)
 	if err != nil {
 		return "", err
 	}
 
-	key := fmt.Sprintf("%s:%s",
-		purpose,
-		userID,
-	)
+	key := s.genKey(purpose, userID)
+	o := OTP{
+		CodeHash: jwt.Hash(otp),
+		Attempts: 0,
+	}
 
-	otpHash := jwt.Hash(otp)
-	if err := s.otpRepo.Save(
+	if err := s.store.Save(
 		ctx,
 		key,
-		otpHash,
+		o,
 		OTPTTL,
 	); err != nil {
 		return "", err
@@ -113,7 +160,20 @@ func (s *Service) SendOTP(
 	userID uuid.UUID,
 	purpose string,
 ) error {
-	user, err := s.userService.GetUserByID(
+	allowed, err := s.limiter.AllowOTP(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return security.NewSecureError(
+			http.StatusTooManyRequests,
+			"RATE_LIMIT_EXCEEDED",
+			"rate limit exceeded",
+			nil,
+		)
+	}
+
+	user, err := s.userSrv.GetUserByID(
 		ctx,
 		userID,
 	)
@@ -150,6 +210,14 @@ func (s *Service) SendOTP(
 	return err
 }
 
+func (s *Service) incrementAttempts(ctx context.Context, key string) error {
+	err := s.store.Increment(
+		ctx,
+		key,
+	)
+	return err
+}
+
 func (s *Service) VerifyOTP(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -167,7 +235,7 @@ func (s *Service) VerifyOTP(
 		log.Meta{"key": key},
 	)
 
-	value, err := s.otpRepo.Get(
+	uo, err := s.store.Get(
 		ctx,
 		key,
 	)
@@ -192,20 +260,30 @@ func (s *Service) VerifyOTP(
 	s.logger.Debug(
 		"comparing otp hash",
 		log.Meta{
-			"key":   key,
-			"otp":   otp,
-			"value": value,
+			"key": key,
 		},
 	)
 
-	if value != jwt.Hash(otp) {
+	if uo.CodeHash != jwt.Hash(otp) {
+		err = s.incrementAttempts(ctx, key)
+		if err != nil {
+			s.logger.Error(
+				"failed to increment attempts",
+				log.Meta{"key": key},
+			)
+		}
+		s.logger.Error(
+			"invalid otp",
+			log.Meta{"key": key},
+		)
 		return invalidOTP()
 	}
+
 	s.logger.Debug(
 		"deleting otp after successful verification",
 		log.Meta{"key": key},
 	)
-	err = s.otpRepo.Delete(ctx, key)
+	err = s.store.Delete(ctx, key)
 	if err != nil {
 		s.logger.Warn(
 			"failed to delete otp",
@@ -226,15 +304,23 @@ func (s *Service) ResendOTP(
 	userID uuid.UUID,
 	purpose string,
 ) error {
-	user, err := s.userService.GetUserByID(
-		ctx,
-		userID,
-	)
+	allowed, err := s.limiter.AllowOTP(ctx, userID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check rate limit: %w", err)
+	}
+	if !allowed {
+		return fmt.Errorf("rate limit exceeded")
 	}
 
-	otp, err := s.otpGen.GenerateOTP(purpose)
+	// user, err := s.userSrv.GetUserByID(
+	// 	ctx,
+	// 	userID,
+	// )
+	// if err != nil {
+	// 	return err
+	// }
+
+	otp, err := s.gen.GenerateOTP(purpose)
 	if err != nil {
 		return err
 	}
@@ -244,10 +330,12 @@ func (s *Service) ResendOTP(
 		purpose,
 		userID,
 	)
-	err = s.otpRepo.Save(
+	err = s.store.Save(
 		ctx,
 		key,
-		optHash,
+		OTP{
+			CodeHash: optHash,
+		},
 		OTPTTL,
 	)
 	if err != nil {
@@ -259,17 +347,26 @@ func (s *Service) ResendOTP(
 		log.Meta{"key": key},
 	)
 
-	switch purpose {
-	case "email":
-		err = s.mailer.SendOTP(ctx,
-			*user.Email,
-			otp)
-	case "phone":
-		err = s.mailer.SendOTP(ctx,
-			*user.Phone,
-			otp)
-	default:
-		return fmt.Errorf("unsupported purpose: %s", purpose)
-	}
+	s.logger.Info(
+		"Sending OTP",
+		log.Meta{
+			"purpose": purpose,
+			"userID":  userID,
+			"otp":     otp,
+		},
+	)
+
+	// switch purpose {
+	// case "email":
+	// 	err = s.mailer.SendOTP(ctx,
+	// 		*user.Email,
+	// 		otp)
+	// case "phone":
+	// 	err = s.mailer.SendOTP(ctx,
+	// 		*user.Phone,
+	// 		otp)
+	// default:
+	// 	return fmt.Errorf("unsupported purpose: %s", purpose)
+	// }
 	return err
 }
