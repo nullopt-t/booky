@@ -4,6 +4,7 @@ import (
 	// "booky-backend/internal/cart"
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/middleware"
+	"booky-backend/internal/notifier"
 	"booky-backend/internal/user/otp"
 
 	// "booky-backend/internal/inventory"
@@ -12,17 +13,17 @@ import (
 
 	// "booky-backend/internal/checkout"
 	// "booky-backend/internal/order"
-	"booky-backend/pkg/cache"
+
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
 	"booky-backend/pkg/log"
-	"booky-backend/pkg/mail"
 	"context"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 type application interface {
@@ -38,7 +39,7 @@ type App struct {
 	logger *log.ConsoleLogger
 
 	// cache
-	cache cache.Cache
+	redisClient *redis.Client
 
 	// database
 	db *database.DB
@@ -51,18 +52,55 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 	v1 := router.Group("/api/v1")
 	swagger.SetUpDocs(v1)
 
-	app.cache = cache.NewMemoryCache()
 	txRunner := database.NewTxRunner(app.db)
 
-	mailer := mail.NewMailer()
+	jobQueue := notifier.NewRedisJobQueue(
+		app.redisClient,
+	)
+
+	notifier := notifier.NewNotifier(
+		jobQueue,
+		app.logger,
+	)
 
 	// user
 	userRepo := user.NewPostgresRepository()
-	userService := user.NewService(txRunner, userRepo, app.logger)
-	otpRepo := otp.NewOTPRepository(app.cache, app.logger)
-	otpService := otp.NewService(otpRepo, userService, app.logger, mailer)
-	userHandler := user.NewHandler(userService, otpService, config)
-	userRouter := user.NewRouter(userHandler, config)
+	userService := user.NewService(
+		txRunner,
+		userRepo,
+		app.logger,
+	)
+
+	otpRepo := otp.NewOTPStore(
+		app.redisClient,
+		app.logger,
+	)
+
+	otpLimiter := otp.NewRateLimiter(
+		app.redisClient,
+	)
+	otpGen := otp.NewOTPGenerator()
+
+	otpService := otp.NewService(
+		otpRepo,
+		otpGen,
+		otpLimiter,
+		userService,
+		app.logger,
+		notifier,
+	)
+
+	userHandler := user.NewHandler(
+		userService,
+		otpService,
+		config,
+	)
+
+	userRouter := user.NewRouter(
+		userHandler,
+		config,
+	)
+
 	userRouter.MapRoutes(v1)
 
 	// inventoryRepo := inventory.NewPostgresRepository()
@@ -138,6 +176,19 @@ func (app *App) Run() error {
 			"database is not live",
 			log.Meta{
 				"Error": err.Error(),
+			},
+		)
+	}
+
+	app.redisClient = redis.NewClient(&redis.Options{
+		Addr: cfg.RedisCfg.Addr,
+	})
+
+	if err := app.redisClient.Ping(context.Background()); err != nil {
+		app.logger.Warn(
+			"redis connection issue",
+			log.Meta{
+				"Error": err,
 			},
 		)
 	}
