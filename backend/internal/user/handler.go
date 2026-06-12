@@ -114,18 +114,18 @@ type LoginUserRequest struct {
 type Handler struct {
 	userService UserService
 	otpService  OTPService
-	config      *config.Config
+	secrets     *config.Secrets
 }
 
 func NewHandler(
 	userService UserService,
 	otpService OTPService,
-	config *config.Config,
+	secrets *config.Secrets,
 ) *Handler {
 	return &Handler{
 		userService: userService,
 		otpService:  otpService,
-		config:      config,
+		secrets:     secrets,
 	}
 }
 
@@ -201,7 +201,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 
 	accessToken, err := jwt.CreateToken(
 		string(subject),
-		h.config.JwtSecretKey,
+		h.secrets.JwtAccessTokenSecretKey,
 		jwt.AccessTokenTTL,
 		jwt.AccessTokenType,
 	)
@@ -212,7 +212,7 @@ func (h *Handler) UserRegister(c *gin.Context) {
 
 	refreshToken, err := jwt.CreateToken(
 		string(subject),
-		h.config.JwtSecretKey,
+		h.secrets.JwtRefreshTokenSecretKey,
 		jwt.RefreshTokenTTL,
 		jwt.RefreshTokenType,
 	)
@@ -319,7 +319,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 
 	accessToken, err := jwt.CreateToken(
 		string(subject),
-		h.config.JwtSecretKey,
+		h.secrets.JwtAccessTokenSecretKey,
 		jwt.AccessTokenTTL,
 		jwt.AccessTokenType,
 	)
@@ -337,7 +337,7 @@ func (h *Handler) UserLogin(c *gin.Context) {
 
 	refreshToken, err := jwt.CreateToken(
 		string(subject),
-		h.config.JwtSecretKey,
+		h.secrets.JwtRefreshTokenSecretKey,
 		jwt.RefreshTokenTTL,
 		jwt.RefreshTokenType,
 	)
@@ -564,7 +564,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 
 	claims, err := jwt.VerifyToken(
 		req.RefreshToken,
-		h.config.JwtSecretKey,
+		h.secrets.JwtRefreshTokenSecretKey,
 	)
 	if err != nil {
 		c.Error(
@@ -580,7 +580,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 
 	accessToken, err := jwt.CreateToken(
 		claims.Subject,
-		h.config.JwtSecretKey,
+		h.secrets.JwtAccessTokenSecretKey,
 		jwt.AccessTokenTTL,
 		jwt.AccessTokenType,
 	)
@@ -658,7 +658,7 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 
 		resetToken, err = jwt.CreateToken(
 			string(subjectStr),
-			h.config.JwtSecretKey,
+			h.secrets.JwtResetPassTokenSecretKey,
 			jwt.ResetPassTokenTTL,
 			jwt.ResetPassTokenType,
 		)
@@ -726,7 +726,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	claims, err := jwt.VerifyToken(
 		req.Token,
-		h.config.JwtSecretKey,
+		h.secrets.JwtResetPassTokenSecretKey,
 	)
 	if err != nil {
 		c.Error(err)

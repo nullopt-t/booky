@@ -4,7 +4,6 @@ import (
 	"booky-backend/pkg/log"
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,26 +12,26 @@ import (
 type MessageType string
 
 const (
-	MessageTypeOTP MessageType = "email_otp"
+	MessageTypeOTP     MessageType = "email_otp"
+	MessageTypeWelcome MessageType = "email_welcome"
 )
 
-type Message struct {
-	ID         uuid.UUID       `json:"id"`
-	Type       MessageType     `json:"type"`
-	Status     string          `json:"status"`
-	Attempts   int             `json:"attempts"`
-	Payload    json.RawMessage `json:"payload"`
-	EnqueuedAt time.Time       `json:"enqueued_at"`
+type OTPPayload struct {
+	Email string `json:"email"`
+	Code  string `json:"code"`
 }
 
-type OTPPayload struct {
-	Email    string `json:"email"`
-	CodeHash string `json:"code_hash"`
+type WelcomePayload struct {
+	Email string `json:"email"`
 }
 
 type Queue interface {
-	Enqueue(ctx context.Context, key string, msg Message) error
-	Dequeue(ctx context.Context, key string) (Message, error)
+	Enqueue(ctx context.Context, msg Message) error
+	Dequeue(ctx context.Context) (Message, error)
+}
+
+type Mailer interface {
+	SendHTML(to []string, subject, html string) error
 }
 
 type Notifier struct {
@@ -50,30 +49,58 @@ func NewNotifier(
 	}
 }
 
-func (n *Notifier) SendOTP(ctx context.Context, email, otp string) error {
-	payload := OTPPayload{
-		Email:    email,
-		CodeHash: otp,
-	}
-	payloadBytes, err := json.Marshal(payload)
+func (n *Notifier) NotifyOTP(
+	ctx context.Context,
+	email, otp string,
+) error {
+	n.logger.Debug("notify otp",
+		log.Meta{
+			"email": email,
+			"otp":   otp,
+		},
+	)
+
+	payload, err := json.Marshal(
+		OTPPayload{
+			Email: email,
+			Code:  otp,
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
+		return err
 	}
-	msg := Message{
-		ID:         uuid.New(),
-		Type:       MessageTypeOTP,
-		Status:     "pending",
-		Attempts:   0,
-		Payload:    json.RawMessage(payloadBytes),
-		EnqueuedAt: time.Now(),
-	}
-	n.logger.Info("enqueuing OTP message", log.Meta{
-		"email": email,
-		"otp":   otp,
-	})
-	err = n.queue.Enqueue(ctx, LIST_KEY, msg)
+	return n.queue.Enqueue(ctx,
+		Message{
+			ID:         uuid.New(),
+			Type:       MessageTypeOTP,
+			Status:     "pending",
+			Attempts:   0,
+			Payload:    payload,
+			EnqueuedAt: time.Now(),
+		},
+	)
+}
+
+func (n *Notifier) NotifyWelcome(
+	ctx context.Context,
+	email string,
+) error {
+	payload, err := json.Marshal(
+		WelcomePayload{
+			Email: email,
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to enqueue message: %w", err)
+		return err
 	}
-	return nil
+	return n.queue.Enqueue(ctx,
+		Message{
+			ID:         uuid.New(),
+			Type:       MessageTypeWelcome,
+			Status:     "pending",
+			Attempts:   0,
+			Payload:    payload,
+			EnqueuedAt: time.Now(),
+		},
+	)
 }

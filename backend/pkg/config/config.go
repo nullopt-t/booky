@@ -11,16 +11,31 @@ type DatabaseConfig struct {
 }
 
 type RedisConfig struct {
-	Addr     string
+	Host     string
+	Port     int
 	Password string
 	DB       int
 }
 
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+}
+
+type Secrets struct {
+	JwtAccessTokenSecretKey    string
+	JwtRefreshTokenSecretKey   string
+	JwtResetPassTokenSecretKey string
+}
+
 type Config struct {
-	DBCfg        *DatabaseConfig
-	RedisCfg     *RedisConfig
-	SvPort       string
-	JwtSecretKey string
+	DBCfg    *DatabaseConfig
+	RedisCfg *RedisConfig
+	SMTPCfg  *SMTPConfig
+	KeysCfg  *Secrets
+	SvPort   string
 }
 
 func Load() *Config {
@@ -33,11 +48,22 @@ func Load() *Config {
 			DBName:     utils.GetEnvOrDefault("DB_NAME", "bookshop"),
 		},
 		RedisCfg: &RedisConfig{
-			Addr:     utils.GetEnvOrDefault("REDIS_ADDR", "localhost:6379"),
+			Host:     utils.GetEnvOrDefault("REDIS_HOST", "localhost"),
+			Port:     utils.GetEnvAsInt("REDIS_PORT", 6379),
 			Password: utils.GetEnvOrDefault("REDIS_PASSWORD", ""),
 			DB:       utils.GetEnvAsInt("REDIS_DB", 0),
 		},
-		SvPort:       utils.GetEnvOrDefault("PORT", "8080"),
-		JwtSecretKey: utils.GetEnvOrDefault("JWT_SECRET", "jwt-secret-key"),
+		SMTPCfg: &SMTPConfig{
+			Host:     utils.GetEnvOrDefault("SMTP_HOST", "localhost"),
+			Port:     utils.GetEnvAsInt("SMTP_PORT", 25),
+			Username: utils.GetEnvOrDefault("SMTP_USERNAME", ""),
+			Password: utils.GetEnvOrDefault("SMTP_PASSWORD", ""),
+		},
+		KeysCfg: &Secrets{
+			JwtAccessTokenSecretKey:    utils.GetEnvOrDefault("JWT_ACCESS_SECRET", "jwt-access-secret-key"),
+			JwtRefreshTokenSecretKey:   utils.GetEnvOrDefault("JWT_REFRESH_SECRET", "jwt-refresh-secret-key"),
+			JwtResetPassTokenSecretKey: utils.GetEnvOrDefault("JWT_RESET_PASS_SECRET", "jwt-reset-pass-secret-key"),
+		},
+		SvPort: utils.GetEnvOrDefault("HTTP_PORT", "8080"),
 	}
 }

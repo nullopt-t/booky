@@ -44,20 +44,20 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 
 	// protected auth routes
 	auth.Use(
-		middleware.Authanticate(r.config),
+		middleware.Authanticate(r.config.KeysCfg),
 	)
 	auth.GET("/me", r.handler.GetMe)
 
 	otp := vgroup.Group("/otp")
 	otp.Use(
-		middleware.Authanticate(r.config),
+		middleware.Authanticate(r.config.KeysCfg),
 	)
 	otp.POST("/verify", r.handler.VerifyOTP)
 	otp.POST("/resend", r.handler.ResendOTP)
 
 	users := vgroup.Group("/users")
 	users.Use(
-		middleware.Authanticate(r.config),
+		middleware.Authanticate(r.config.KeysCfg),
 		middleware.Authorize(model.AdminRole),
 	)
 

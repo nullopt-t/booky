@@ -3,19 +3,23 @@ package main
 import (
 	"booky-backend/internal/notifier"
 	"booky-backend/pkg/config"
+	"booky-backend/pkg/log"
+	"booky-backend/pkg/mail"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 
+	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
 func main() {
+	_ = godotenv.Load()
 	cfg := config.Load()
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisCfg.Addr,
+		Addr: fmt.Sprintf("%s:%d", cfg.RedisCfg.Host, cfg.RedisCfg.Port),
 	})
 
 	fmt.Println("redis client created")
@@ -39,7 +43,27 @@ func main() {
 	}()
 
 	jobQueue := notifier.NewRedisJobQueue(redisClient)
-	worker := notifier.NewNotifierWorker(jobQueue)
+	logger := log.NewConsoleLogger()
+
+	mailer := mail.NewMailer(&mail.Config{
+		Host:     cfg.SMTPCfg.Host,
+		Port:     cfg.SMTPCfg.Port,
+		Username: cfg.SMTPCfg.Username,
+		Password: cfg.SMTPCfg.Password,
+	})
+
+	renderer, err := notifier.NewRenderer()
+	if err != nil {
+		fmt.Println("renderer creation failed:", err)
+		return
+	}
+
+	worker := notifier.NewNotifierWorker(
+		jobQueue,
+		logger,
+		mailer,
+		renderer,
+	)
 
 	worker.Start(ctx)
 }

@@ -81,7 +81,7 @@ func Authorize(requiredRole model.UserRole) gin.HandlerFunc {
 	}
 }
 
-func Authanticate(config *config.Config) gin.HandlerFunc {
+func Authanticate(secrets *config.Secrets) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 
@@ -115,7 +115,7 @@ func Authanticate(config *config.Config) gin.HandlerFunc {
 
 		claims, err := jwt.VerifyToken(
 			tokenString,
-			config.JwtSecretKey,
+			secrets.JwtAccessTokenSecretKey,
 		)
 
 		if err != nil {

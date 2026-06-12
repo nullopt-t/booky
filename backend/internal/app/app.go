@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -93,7 +94,7 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 	userHandler := user.NewHandler(
 		userService,
 		otpService,
-		config,
+		config.KeysCfg,
 	)
 
 	userRouter := user.NewRouter(
@@ -155,11 +156,19 @@ func (app *App) Shutdown() {
 }
 
 func (app *App) Run() error {
+	app.logger = log.NewConsoleLogger()
+	err := godotenv.Load()
+	if err != nil {
+		app.logger.Warn(
+			"failed to load .env file",
+			log.Meta{
+				"Error": err.Error(),
+			},
+		)
+	}
+
 	cfg := config.Load()
 
-	app.logger = log.NewConsoleLogger()
-
-	var err error
 	app.db, err = database.ConnectDB(context.Background(), cfg)
 	if err != nil {
 		app.logger.Error(
@@ -181,7 +190,10 @@ func (app *App) Run() error {
 	}
 
 	app.redisClient = redis.NewClient(&redis.Options{
-		Addr: cfg.RedisCfg.Addr,
+		Addr: fmt.Sprintf("%s:%d",
+			cfg.RedisCfg.Host,
+			cfg.RedisCfg.Port,
+		),
 	})
 
 	if err := app.redisClient.Ping(context.Background()); err != nil {

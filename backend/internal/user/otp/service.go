@@ -13,12 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const OTPTTL = 60 * time.Minute
-
-const (
-	MaxRetriesPerHour = 4
-	MaxRetriesPerDay  = 20
-)
+const OTPTTL = 15 * time.Minute
 
 type OTPPurpose string
 
@@ -27,8 +22,8 @@ const (
 	OTPTypeReset OTPPurpose = "reset"
 )
 
-type Mailer interface {
-	SendOTP(
+type Notifier interface {
+	NotifyOTP(
 		ctx context.Context,
 		to,
 		otp string,
@@ -85,13 +80,12 @@ type RateLimiter interface {
 }
 
 type Service struct {
-	store   Store
-	userSrv UserService
-	gen     Generator
-	limiter RateLimiter
-	logger  log.Logger
-	mailer  Mailer
-	sender  Sender
+	store    Store
+	userSrv  UserService
+	gen      Generator
+	limiter  RateLimiter
+	logger   log.Logger
+	notifier Notifier
 }
 
 func NewService(
@@ -100,15 +94,15 @@ func NewService(
 	limiter RateLimiter,
 	userSrv UserService,
 	logger log.Logger,
-	mailer Mailer,
+	notifier Notifier,
 ) *Service {
 	return &Service{
-		store:   store,
-		userSrv: userSrv,
-		gen:     gen,
-		limiter: limiter,
-		logger:  logger,
-		mailer:  mailer,
+		store:    store,
+		userSrv:  userSrv,
+		gen:      gen,
+		limiter:  limiter,
+		logger:   logger,
+		notifier: notifier,
 	}
 }
 
@@ -192,15 +186,9 @@ func (s *Service) SendOTP(
 
 	switch purpose {
 	case "email":
-		err = s.mailer.SendOTP(
+		err = s.notifier.NotifyOTP(
 			ctx,
 			*user.Email,
-			otp,
-		)
-	case "sms":
-		err = s.sender.SendSMS(
-			ctx,
-			*user.Phone,
 			otp,
 		)
 	default:
