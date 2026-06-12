@@ -17,12 +17,10 @@ const (
 	ResetPassTokenType TokenType = "reset_pass"
 )
 
-type TokenDuration time.Duration
-
 const (
-	RefreshTokenTTL   TokenDuration = TokenDuration(30 * 24 * time.Hour) // 30 days
-	AccessTokenTTL    TokenDuration = TokenDuration(15 * time.Minute)
-	ResetPassTokenTTL TokenDuration = TokenDuration(48 * time.Hour)
+	RefreshTokenTTL   = 30 * 24 * time.Hour
+	AccessTokenTTL    = 15 * time.Minute
+	ResetPassTokenTTL = 48 * time.Hour
 )
 
 type Claims struct {
@@ -30,12 +28,12 @@ type Claims struct {
 	Type TokenType `json:"type,omitempty"`
 }
 
-func CreateToken(subject, secret string, duration TokenDuration, tokenType TokenType) (string, error) {
+func CreateToken(subject, secret string, duration time.Duration, tokenType TokenType) (string, error) {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   subject,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(duration))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 		},
 		Type: tokenType,
 	}
