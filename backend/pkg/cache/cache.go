@@ -2,7 +2,8 @@ package cache
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -32,13 +33,6 @@ type Cache interface {
 	) error
 }
 
-var (
-	ErrNotExist    = errors.New("pair doesn't exist")
-	ErrInvalidType = errors.New("invalid value type ")
-	ErrSetFailed   = errors.New("failed to set a pair")
-	ErrDelFailed   = errors.New("failed to delete a pair")
-)
-
 type MemoryCache struct {
 	cache *cache.Cache
 }
@@ -55,11 +49,11 @@ func NewMemoryCache() *MemoryCache {
 func (mc *MemoryCache) Get(_ context.Context, key string) (string, error) {
 	val, ok := mc.cache.Get(key)
 	if !ok {
-		return "", ErrNotExist
+		return "", fmt.Errorf("memory: key not found")
 	}
 	value, ok := val.(string)
 	if !ok {
-		return "", ErrInvalidType
+		return "", fmt.Errorf("memory: invalid value type")
 	}
 	return value, nil
 }
@@ -67,7 +61,7 @@ func (mc *MemoryCache) Get(_ context.Context, key string) (string, error) {
 func (mc *MemoryCache) Set(_ context.Context, key, value string, expiration time.Duration) error {
 	err := mc.cache.Add(key, value, expiration)
 	if err != nil {
-		return err
+		return fmt.Errorf("memory: set failed: %w", err)
 	}
 	return nil
 }
@@ -98,11 +92,17 @@ func (c *RedisCache) Get(
 	ctx context.Context,
 	key string,
 ) (string, error) {
-	cmd := c.client.Get(ctx, key)
-	if cmd.Err() != nil {
-		return "", cmd.Err()
+	val, err := c.client.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return "", fmt.Errorf("redis: key not found")
+		}
+		if err := err.(net.Error); err != nil {
+			return "", fmt.Errorf("redis: network error: %w", err)
+		}
+		return "", err
 	}
-	return cmd.Val(), nil
+	return val, nil
 }
 
 func (c *RedisCache) Set(
@@ -111,9 +111,11 @@ func (c *RedisCache) Set(
 	value string,
 	expiration time.Duration,
 ) error {
-	cmd := c.client.Set(ctx, key, value, expiration)
-	if cmd.Err() != nil {
-		return cmd.Err()
+	if err := c.client.Set(ctx, key, value, expiration).Err(); err != nil {
+		if err := err.(net.Error); err != nil {
+			return fmt.Errorf("redis: network error: %w", err)
+		}
+		return err
 	}
 	return nil
 }
@@ -122,13 +124,19 @@ func (c *RedisCache) Delete(
 	ctx context.Context,
 	key string,
 ) error {
-	cmd := c.client.Del(ctx, key)
-	if cmd.Err() != nil {
-		return cmd.Err()
+	if err := c.client.Del(ctx, key).Err(); err != nil {
+		if err := err.(net.Error); err != nil {
+			return fmt.Errorf("redis: network error: %w", err)
+		}
+		return err
 	}
 	return nil
 }
 
 func (c *RedisCache) Close() error {
-	return c.client.Close()
+	err := c.client.Close()
+	if err != nil {
+		return fmt.Errorf("redis: close error: %w", err)
+	}
+	return nil
 }
