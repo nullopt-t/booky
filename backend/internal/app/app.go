@@ -106,6 +106,7 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 		authService,
 		rateLimiter,
 		config.KeysCfg,
+		app.logger,
 	)
 
 	userRouter := user.NewRouter(

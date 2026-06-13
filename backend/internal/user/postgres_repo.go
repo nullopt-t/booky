@@ -43,7 +43,7 @@ func (r *UserRepository) Create(
 		`
 		INSERT INTO users (
 			email,
-			password_hash,
+			password_hash
 		)
 		VALUES ($1, $2)
 		RETURNING id
@@ -304,7 +304,7 @@ func (r *UserRepository) UpdatePasswordHash(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	filter Filter,
-	newPassHash string,
+	newPassHash []byte,
 ) error {
 
 	query := `UPDATE users SET password_hash = $1 WHERE deleted_at IS NULL`

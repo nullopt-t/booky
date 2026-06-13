@@ -54,33 +54,64 @@ func NewService(
 	}
 }
 
+func (s *UserService) get(
+	ctx context.Context,
+	db database.QueryExecutor,
+	filter Filter,
+) (*model.User, error) {
+	user, err := s.repo.Get(
+		ctx,
+		db,
+		filter,
+	)
+	if err != nil {
+		mappedErr := database.MapError(err)
+		switch {
+		case errors.Is(
+			mappedErr,
+			database.ErrNotFound,
+		):
+			return nil, nil
+		default:
+			return nil, security.NewSecureError(
+				http.StatusInternalServerError,
+				security.CodeInternal,
+				"failed to get a user",
+				err,
+			)
+		}
+	}
+	return user, nil
+}
+
 func (s *UserService) CreateUser(
 	ctx context.Context,
-	req RegisterUserRequest,
-) error {
-
-	hashedPassword, err := utils.HashPassword(req.Password)
+	email string,
+	password string,
+) (*model.User, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(password),
+		bcrypt.DefaultCost,
+	)
 	if err != nil {
-		return security.NewSecureError(
+		return nil, security.NewSecureError(
 			http.StatusInternalServerError,
 			security.CodeInternal,
-			"failed to process user credentials",
+			"failed to hash password",
 			err,
 		)
 	}
-
-	newUser := model.NewUser(
-		req.Email,
+	dummyUser := model.NewUser(
+		email,
 		hashedPassword,
 	)
-
 	err = s.dbExecuter.WithDB(
 		ctx,
 		func(db database.QueryExecutor) error {
-			err := s.repo.Create(
+			err = s.repo.Create(
 				ctx,
 				db,
-				newUser,
+				dummyUser,
 			)
 			if err != nil {
 				mappedErr := database.MapError(err)
@@ -107,60 +138,10 @@ func (s *UserService) CreateUser(
 			return nil
 		},
 	)
-	return err
-}
-
-func (s *UserService) get(ctx context.Context, db database.QueryExecutor, filter Filter) (*model.User, error) {
-	user, err := s.repo.Get(
-		ctx,
-		db,
-		filter,
-	)
-	if err != nil {
-		mappedErr := database.MapError(err)
-		switch {
-		case errors.Is(
-			mappedErr,
-			database.ErrNotFound,
-		):
-			return nil, nil
-		default:
-			return nil, security.NewSecureError(
-				http.StatusInternalServerError,
-				security.CodeInternal,
-				"failed to get a user",
-				err,
-			)
-		}
-	}
-	return user, nil
-}
-
-func (s *UserService) Register(
-	ctx context.Context,
-	email string,
-	password string,
-) (*model.User, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, security.NewSecureError(
-			http.StatusInternalServerError,
-			security.CodeInternal,
-			"failed to hash password",
-			err,
-		)
-	}
-	user := model.NewUser(
-		email,
-		string(hashedPassword),
-	)
-	err = s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		return s.repo.Create(ctx, db, user)
-	})
 	if err != nil {
 		return nil, err
 	}
-	return user, nil
+	return dummyUser, nil
 }
 
 func (s *UserService) Login(
@@ -169,56 +150,77 @@ func (s *UserService) Login(
 	password string,
 ) (*model.User, error) {
 	var user *model.User
-	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		var err error
-		user, err = s.get(
-			ctx,
-			db,
-			Filter{
-				Email: &email,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		if user == nil {
-			return security.NewSecureError(
-				http.StatusUnauthorized,
-				security.CodeUnauthorized,
-				"invalid credentials",
-				nil,
+	err := s.dbExecuter.WithDB(ctx,
+		func(db database.QueryExecutor) error {
+			var err error
+			user, err = s.get(
+				ctx,
+				db,
+				Filter{
+					Email: &email,
+				},
 			)
-		}
-		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-			return security.NewSecureError(
-				http.StatusUnauthorized,
-				security.CodeUnauthorized,
-				"invalid credentials",
-				nil,
-			)
-		}
-		return nil
-	})
+			if err != nil {
+				return err
+			}
+			if user == nil {
+				return security.NewSecureError(
+					http.StatusUnauthorized,
+					security.CodeUnauthorized,
+					"invalid credentials",
+					nil,
+				)
+			}
+			if err := bcrypt.CompareHashAndPassword(
+				[]byte(user.PasswordHash),
+				[]byte(password),
+			); err != nil {
+				return security.NewSecureError(
+					http.StatusUnauthorized,
+					security.CodeUnauthorized,
+					"invalid credentials",
+					nil,
+				)
+			}
+			return nil
+		})
 	return user, err
 }
 
-func (s *UserService) VerifyEmail(
+func (s *UserService) MarkEmailVerified(
 	ctx context.Context,
 	email string,
 ) error {
-	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		var err error
-		err = s.repo.VerifyIdentifier(
-			ctx,
-			db,
-			IdentifierTypeEmail,
-			email,
-		)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	err := s.dbExecuter.WithDB(ctx,
+		func(db database.QueryExecutor) error {
+			user, err := s.repo.Get(ctx, db, Filter{
+				Email: &email,
+			})
+			if err != nil {
+				return err
+			}
+
+			if user.EmailVerifiedAt != nil {
+				s.logger.Info(
+					"email is already verified",
+					log.Meta{
+						"userID": user.ID,
+						"email":  user.Email,
+					})
+				return nil
+			}
+
+			err = s.repo.VerifyIdentifier(
+				ctx,
+				db,
+				IdentifierTypeEmail,
+				email,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 	return err
 }
 
@@ -227,20 +229,44 @@ func (s *UserService) GetUserByID(
 	userID uuid.UUID,
 ) (*model.User, error) {
 	var user *model.User
-	err := s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		var err error
-		user, err = s.get(
-			ctx,
-			db,
-			Filter{
-				ID: &userID,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	err := s.dbExecuter.WithDB(ctx,
+		func(db database.QueryExecutor) error {
+			var err error
+			user, err = s.get(
+				ctx,
+				db,
+				Filter{
+					ID: &userID,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	return user, err
+}
+
+func (s *UserService) GetUserByEmail(
+	ctx context.Context,
+	email string,
+) (*model.User, error) {
+	var user *model.User
+	err := s.dbExecuter.WithDB(ctx,
+		func(db database.QueryExecutor) error {
+			var err error
+			user, err = s.get(
+				ctx,
+				db,
+				Filter{
+					Email: &email,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 	return user, err
 }
 
@@ -312,47 +338,6 @@ func (s *UserService) DeleteUserByID(
 	return nil
 }
 
-func (s *UserService) CheckPassword(
-	ctx context.Context,
-	userID uuid.UUID,
-	password string,
-) error {
-	return s.dbExecuter.WithDB(
-		ctx,
-		func(db database.QueryExecutor) error {
-			user, err := s.repo.Get(
-				ctx,
-				db,
-				Filter{
-					ID: &userID,
-				},
-			)
-			if err != nil {
-				return security.NewSecureError(
-					http.StatusInternalServerError,
-					security.CodeInternal,
-					"failed to fetch a user",
-					err,
-				)
-			}
-
-			if err = utils.ComparePassword(
-				user.PasswordHash,
-				password,
-			); err != nil {
-				return security.NewSecureError(
-					http.StatusUnauthorized,
-					security.CodeUnauthorized,
-					"idenifier or password is incorrect",
-					err,
-				)
-			}
-
-			return nil
-		},
-	)
-}
-
 func (s *UserService) UpdatePassword(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -392,27 +377,5 @@ func (s *UserService) UpdatePassword(
 	return nil
 }
 
-func (s *UserService) SendOTPEmail(
-	ctx context.Context,
-	email string,
-	purpose string,
-) error {
-	return s.dbExecuter.WithDB(ctx, func(db database.QueryExecutor) error {
-		_, err := s.repo.Get(
-			ctx,
-			db,
-			Filter{
-				Email: &email,
-			},
-		)
-		if err != nil {
-			return security.NewSecureError(
-				http.StatusNotFound,
-				security.CodeNotFound,
-				"email not found",
-				nil,
-			)
-		}
-		return s.otpService.SendOTP(ctx, email, "register")
-	})
-}
+
+

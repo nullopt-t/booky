@@ -51,7 +51,11 @@ func (w *Worker) handleMessage(
 		if err != nil {
 			return err
 		}
-		fmt.Printf("otp %s sent to %s\n", payload.Code, payload.Email)
+
+		w.logger.Info("otp sent", log.Meta{
+			"email": payload.Email,
+			"otp":   payload.Code,
+		})
 
 	case MessageTypeWelcome:
 		var payload WelcomePayload
@@ -80,13 +84,15 @@ func (w *Worker) Start(ctx context.Context) {
 			continue
 		}
 
-		fmt.Println("dequeued message:", map[string]any{
-			"id":          msg.ID,
-			"type":        msg.Type,
-			"status":      msg.Status,
-			"attempts":    msg.Attempts,
-			"enqueued_at": msg.EnqueuedAt,
-		})
+		w.logger.Info(
+			"dequeued message:",
+			log.Meta{
+				"id":          msg.ID,
+				"type":        msg.Type,
+				"status":      msg.Status,
+				"attempts":    msg.Attempts,
+				"enqueued_at": msg.EnqueuedAt,
+			})
 
 		w.handleMessage(msg)
 	}

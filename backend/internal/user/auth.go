@@ -1,7 +1,6 @@
 package user
 
 import (
-	"booky-backend/internal/model"
 	"booky-backend/pkg/log"
 	"context"
 )
@@ -52,22 +51,26 @@ func (s *AuthService) Login(ctx context.Context, req LoginUserRequest) (*Tokens,
 func (s *AuthService) Register(
 	ctx context.Context,
 	req RegisterUserRequest,
-) (*model.User, error) {
-	newUser, err := s.userService.Register(ctx, req.Email, req.Password)
+) error {
+	_, err := s.userService.CreateUser(
+		ctx,
+		req.Email,
+		req.Password,
+	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// enqueue
-	err = s.otpService.SendOTP(ctx, req.Email, "email")
+	err = s.otpService.SendOTP(
+		ctx,
+		req.Email,
+		"register",
+	)
 	if err != nil {
-		s.logger.Error(
-			"failed to send OTP email",
-			log.Meta{"user_id": newUser.ID.String()},
-		)
+		return err
 	}
 
-	return newUser, nil
+	return nil
 }
 
 func (s *AuthService) VerifyOTP(
@@ -76,18 +79,38 @@ func (s *AuthService) VerifyOTP(
 ) error {
 	err := s.otpService.VerifyOTP(
 		ctx,
-		req.Purpose,
 		req.Email,
 		req.Code,
+		"register",
 	)
 	if err != nil {
 		return err
 	}
 
-	err = s.userService.VerifyEmail(ctx, req.Email)
+	return s.userService.MarkEmailVerified(
+		ctx,
+		req.Email,
+	)
+}
+
+func (s *AuthService) SendEmailOTP(
+	ctx context.Context,
+	email string,
+) error {
+	user, err := s.userService.GetUserByEmail(
+		ctx,
+		email,
+	)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	if user.EmailVerifiedAt != nil {
+		return nil
+	}
+
+	return s.otpService.SendOTP(ctx,
+		user.Email,
+		"register",
+	)
 }

@@ -17,18 +17,21 @@ import (
 func main() {
 	_ = godotenv.Load()
 	cfg := config.Load()
+	logger := log.NewConsoleLogger()
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%d", cfg.RedisCfg.Host, cfg.RedisCfg.Port),
 	})
 
-	fmt.Println("redis client created")
+	logger.Info("user client created")
 
 	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		fmt.Println("redis ping failed:", err)
+		logger.Error("redis ping failed", log.Meta{
+			"Error": err,
+		})
 		return
 	}
-	fmt.Println("redis ping successful")
+	logger.Info("redis ping successful")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -43,7 +46,6 @@ func main() {
 	}()
 
 	jobQueue := notifier.NewRedisJobQueue(redisClient)
-	logger := log.NewConsoleLogger()
 
 	mailer := mail.NewMailer(&mail.Config{
 		Host:     cfg.SMTPCfg.Host,
@@ -54,7 +56,10 @@ func main() {
 
 	renderer, err := notifier.NewRenderer()
 	if err != nil {
-		fmt.Println("renderer creation failed:", err)
+		logger.Error(
+			"renderer creation failed:", log.Meta{
+				"Error": err,
+			})
 		return
 	}
 

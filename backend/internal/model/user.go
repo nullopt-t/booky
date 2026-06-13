@@ -32,7 +32,7 @@ type User struct {
 	EmailVerifiedAt *time.Time
 	PhoneVerifiedAt *time.Time
 
-	PasswordHash      string
+	PasswordHash      []byte
 	PasswordChangedAt *time.Time
 
 	LastLoginAt *time.Time
@@ -53,7 +53,7 @@ type User struct {
 
 func NewUser(
 	email string,
-	passwordHash string,
+	passwordHash []byte,
 ) *User {
 	return &User{
 		Email:        email,

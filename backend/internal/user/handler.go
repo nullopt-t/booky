@@ -6,6 +6,7 @@ import (
 	"booky-backend/pkg/api"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
+	"booky-backend/pkg/log"
 	"booky-backend/pkg/utils/jwt"
 	"errors"
 	"net/http"
@@ -48,14 +49,12 @@ type VerifyResetTokenRequest struct {
 }
 
 type VerifyOTPRequest struct {
-	Purpose string `json:"purpose" binding:"required,oneof=register"`
-	Email   string `json:"email" binding:"omitempty,email"`
-	Code    string `json:"code" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,max=999999"`
 }
 
 type ResendOTPRequest struct {
-	Email   string `json:"email" binding:"omitempty,email"`
-	Purpose string `json:"purpose" binding:"required,oneof=register"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type UserURIParam struct {
@@ -112,6 +111,7 @@ type Handler struct {
 	authService *AuthService
 	limiter     *security.RateLimiter
 	secrets     *config.Secrets
+	logger      log.Logger
 }
 
 func NewHandler(
@@ -119,12 +119,14 @@ func NewHandler(
 	authService *AuthService,
 	limiter *security.RateLimiter,
 	secrets *config.Secrets,
+	logger log.Logger,
 ) *Handler {
 	return &Handler{
 		userService: userService,
 		authService: authService,
 		limiter:     limiter,
 		secrets:     secrets,
+		logger:      logger,
 	}
 }
 
@@ -162,23 +164,23 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.Register(c.Request.Context(), req)
+	err := h.authService.Register(
+		c.Request.Context(),
+		req,
+	)
 	if err != nil {
-		c.Error(err)
-		return
+		h.logger.Error(
+			"user register",
+			log.Meta{
+				"Error": err,
+			},
+		)
 	}
 
 	c.JSON(
 		http.StatusCreated,
 		api.SuccessResponse{
-			Message: "user created successfully",
-			Data: map[string]any{
-				"user": UserResponse{
-					ID:    user.ID,
-					Role:  string(user.Role),
-					Email: user.Email,
-				},
-			},
+			Message: "If the email is valid, you will receive a verification email.",
 		},
 	)
 }
@@ -512,7 +514,6 @@ func (h *Handler) GetMe(c *gin.Context) {
 
 func (h *Handler) VerifyOTP(c *gin.Context) {
 	ctx := c.Request.Context()
-
 	var req VerifyOTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.handleValidationError(c, err)
@@ -551,10 +552,11 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
-			Message: "verification completed successfully",
+			Message: "OK",
 		},
 	)
 }
+
 func (h *Handler) ResendOTP(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -590,12 +592,20 @@ func (h *Handler) ResendOTP(c *gin.Context) {
 
 	// we should not return an error here, as the email may not exist
 	// if the email does not exist, we will simply not send an OTP
-	_ = h.userService.SendOTPEmail(ctx, req.Email, req.Purpose)
+	err = h.authService.SendEmailOTP(ctx, req.Email)
+	if err != nil {
+		h.logger.Error(
+			"send otp email",
+			log.Meta{
+				"Error": err,
+			},
+		)
+	}
 
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
-			Message: "otp sent successfully",
+			Message: "go check your email !",
 		},
 	)
 }
