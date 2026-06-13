@@ -1,36 +1,25 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email CITEXT NOT NULL UNIQUE CHECK (
-        email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+    email CITEXT NOT NULL UNIQUE,
+    phone TEXT NULL UNIQUE,
+    email_verified_at TIMESTAMPTZ NULL,
+    phone_verified_at TIMESTAMPTZ NULL,
+    role TEXT NOT NULL DEFAULT 'customer' CHECK(
+        role IN ('customer', 'admin', 'vendor')
     ),
-    phone TEXT NULL,
-
-    role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('customer', 'admin', 'vendor')),
-
-    password_hash TEXT NOT NULL,
-
-    -- password resetting columns
-    reset_token TEXT NULL,
-
-    failed_reset_attempts INT DEFAULT 0,
-    last_reset_request_at TIMESTAMPTZ NULL,
-
-    is_inactive BOOLEAN DEFAULT FALSE,
-    failed_login_attempts INT DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(
+        status IN ('active', 'inactive', 'suspended', 'locked', 'deleted')
+    ),
+    suspended_until TIMESTAMPTZ NULL,
     locked_until TIMESTAMPTZ NULL,
+    password_hash TEXT NOT NULL,
+    password_changed_at TIMESTAMPTZ NULL,
+    last_login_at TIMESTAMPTZ NULL,
+    last_login_ip TEXT NULL,
     deleted_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE TABLE IF NOT EXISTS otps (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
-    otp TEXT NOT NULL,
-    type TEXT DEFAULT "email" CHECK( type IN('email', 'phon')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)
 
 -- CREATE INDEX users_active_idx ON users(id)
 -- WHERE is_inactive = false

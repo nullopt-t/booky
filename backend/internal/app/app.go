@@ -14,6 +14,7 @@ import (
 	// "booky-backend/internal/checkout"
 	// "booky-backend/internal/order"
 
+	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/database"
 	"booky-backend/pkg/log"
@@ -63,21 +64,13 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 		jobQueue,
 		app.logger,
 	)
-
-	// user
-	userRepo := user.NewPostgresRepository()
-	userService := user.NewService(
-		txRunner,
-		userRepo,
-		app.logger,
-	)
-
+	// otp
 	otpRepo := otp.NewOTPStore(
 		app.redisClient,
 		app.logger,
 	)
 
-	otpLimiter := otp.NewRateLimiter(
+	rateLimiter := security.NewRateLimiter(
 		app.redisClient,
 	)
 	otpGen := otp.NewOTPGenerator()
@@ -85,15 +78,33 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 	otpService := otp.NewService(
 		otpRepo,
 		otpGen,
-		otpLimiter,
-		userService,
 		app.logger,
 		notifier,
+	)
+	// user
+	userRepo := user.NewPostgresRepository()
+	userService := user.NewService(
+		txRunner,
+		otpService,
+		userRepo,
+		app.logger,
+	)
+
+	jwtService := user.NewJwtService(
+		config.KeysCfg,
+	)
+
+	authService := user.NewAuthService(
+		app.logger,
+		userService,
+		jwtService,
+		otpService,
 	)
 
 	userHandler := user.NewHandler(
 		userService,
-		otpService,
+		authService,
+		rateLimiter,
 		config.KeysCfg,
 	)
 

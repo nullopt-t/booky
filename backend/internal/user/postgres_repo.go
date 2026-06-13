@@ -25,14 +25,14 @@ type Filter struct {
 	Phone *string
 }
 
-type PostgresRepository struct {
+type UserRepository struct {
 }
 
-func NewPostgresRepository() *PostgresRepository {
-	return &PostgresRepository{}
+func NewPostgresRepository() *UserRepository {
+	return &UserRepository{}
 }
 
-func (r *PostgresRepository) Create(
+func (r *UserRepository) Create(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	user *model.User,
@@ -58,7 +58,7 @@ func (r *PostgresRepository) Create(
 	return nil
 }
 
-func (r *PostgresRepository) Get(
+func (r *UserRepository) Get(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	filter Filter,
@@ -137,7 +137,7 @@ func (r *PostgresRepository) Get(
 
 	return &u, nil
 }
-func (r *PostgresRepository) Delete(
+func (r *UserRepository) Delete(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	filter Filter,
@@ -175,7 +175,7 @@ func (r *PostgresRepository) Delete(
 	return nil
 }
 
-func (r *PostgresRepository) GetAll(
+func (r *UserRepository) GetAll(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	q api.PageQuery,
@@ -272,7 +272,7 @@ func (r *PostgresRepository) GetAll(
 	return users, page, nil
 }
 
-func (r *PostgresRepository) VerifyIdentifier(
+func (r *UserRepository) VerifyIdentifier(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	identifierType IdentifierType,
@@ -300,7 +300,7 @@ func (r *PostgresRepository) VerifyIdentifier(
 	return nil
 }
 
-func (r *PostgresRepository) UpdatePasswordHash(
+func (r *UserRepository) UpdatePasswordHash(
 	ctx context.Context,
 	qe database.QueryExecutor,
 	filter Filter,
@@ -336,10 +336,6 @@ func (r *PostgresRepository) UpdatePasswordHash(
 	}
 
 	rows := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("check affected rows: %w", err)
-	}
-
 	if rows == 0 {
 		return sql.ErrNoRows
 	}

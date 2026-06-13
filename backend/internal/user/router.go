@@ -15,8 +15,8 @@ type UserHandler interface {
 	UserRegister(c *gin.Context)
 	UserLogin(c *gin.Context)
 	RefreshToken(c *gin.Context)
-	ForgetPassword(c *gin.Context)
-	ResetPassword(c *gin.Context)
+	// ForgetPassword(c *gin.Context)
+	// ResetPassword(c *gin.Context)
 	GetMe(c *gin.Context)
 	VerifyOTP(c *gin.Context)
 	ResendOTP(c *gin.Context)
@@ -39,21 +39,16 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 	auth.POST("/register", r.handler.UserRegister)
 	auth.POST("/login", r.handler.UserLogin)
 	auth.POST("/refresh", r.handler.RefreshToken)
-	auth.POST("/forget-password", r.handler.ForgetPassword)
-	auth.POST("/reset-password", r.handler.ResetPassword)
+	// auth.POST("/forget-password", r.handler.ForgetPassword)
+	// auth.POST("/reset-password", r.handler.ResetPassword)
+	auth.POST("/verify-otp", r.handler.VerifyOTP)
+	auth.POST("/resend-otp", r.handler.ResendOTP)
 
 	// protected auth routes
 	auth.Use(
 		middleware.Authanticate(r.config.KeysCfg),
 	)
 	auth.GET("/me", r.handler.GetMe)
-
-	otp := vgroup.Group("/otp")
-	otp.Use(
-		middleware.Authanticate(r.config.KeysCfg),
-	)
-	otp.POST("/verify", r.handler.VerifyOTP)
-	otp.POST("/resend", r.handler.ResendOTP)
 
 	users := vgroup.Group("/users")
 	users.Use(

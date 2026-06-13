@@ -15,30 +15,50 @@ const (
 	VendorRole   UserRole = "vendor"
 )
 
+type AccountStatus string
+
+const (
+	StatusActive    AccountStatus = "active"
+	StatusInactive  AccountStatus = "inactive"
+	StatusSuspended AccountStatus = "suspended"
+	StatusDeleted   AccountStatus = "deleted"
+)
+
 type User struct {
-	ID                  uuid.UUID
-	Email               *string
-	EmailOTP            *string
-	EmailOTPExpiresAt   *time.Time
-	EmailOTPAttempts    int
-	IsEmailVerified     bool
-	Phone               *string
-	PhoneOTP            *string
-	PhoneOTPAttempts    int
-	PhoneOTPExpiresAt   *time.Time
-	IsPhoneVerified     bool
-	PasswordHash        string
-	ResetToken          *string
-	ResetTokenExpireAt  *time.Time
-	LastResetRequestAt  *time.Time
-	FailedResetAttempts int
-	Role                UserRole
-	FailedLoginAttempts int
-	LockedUntil         *time.Time
-	IsInactive          bool
-	DeletedAt           *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID    uuid.UUID
+	Email string
+	Phone *string
+
+	EmailVerifiedAt *time.Time
+	PhoneVerifiedAt *time.Time
+
+	PasswordHash      string
+	PasswordChangedAt *time.Time
+
+	LastLoginAt *time.Time
+	LastLoginIP *string
+
+	Role   UserRole
+	Status AccountStatus
+
+	SuspendedUntil *time.Time
+
+	LockedUntil *time.Time
+
+	DeletedAt *time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func NewUser(
+	email string,
+	passwordHash string,
+) *User {
+	return &User{
+		Email:        email,
+		PasswordHash: passwordHash,
+	}
 }
 
 func (u *User) IsAdmin() bool {
@@ -53,7 +73,25 @@ func (u *User) IsCustomer() bool {
 	return u.Role == CustomerRole
 }
 
+func (u *User) IsActive() bool {
+	return u.Status == StatusActive
+}
+
+func (u *User) IsSuspended() bool {
+	return u.Status == StatusSuspended
+}
+
 func (u *User) String() string {
-	return fmt.Sprintf(`user{id=%s, email=%s, role=%s}`,
-		u.ID, *u.Email, u.Role)
+	email := u.Email
+	if email == "" {
+		email = "nil"
+	}
+
+	return fmt.Sprintf(
+		"user{id=%s, email=%s, role=%s, status=%s}",
+		u.ID,
+		email,
+		u.Role,
+		u.Status,
+	)
 }

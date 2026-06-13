@@ -1,4 +1,4 @@
-package otp
+package security
 
 import (
 	"context"
@@ -9,15 +9,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type Limiter struct {
+type RateLimiter struct {
 	client *redis.Client
 }
 
-func NewRateLimiter(client *redis.Client) *Limiter {
-	return &Limiter{client: client}
+func NewRateLimiter(client *redis.Client) *RateLimiter {
+	return &RateLimiter{client: client}
 }
 
-func (r *Limiter) Allow(
+func (r *RateLimiter) Allow(
 	ctx context.Context,
 	key string,
 	limit int64,

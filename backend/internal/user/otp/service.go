@@ -1,7 +1,6 @@
 package otp
 
 import (
-	"booky-backend/internal/model"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/log"
 	"booky-backend/pkg/utils/jwt"
@@ -9,8 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const OTPTTL = 15 * time.Minute
@@ -18,8 +15,10 @@ const OTPTTL = 15 * time.Minute
 type OTPPurpose string
 
 const (
-	OTPTypeLogin OTPPurpose = "login"
-	OTPTypeReset OTPPurpose = "reset"
+	OTPTypeRegister OTPPurpose = "register"
+	OTPTypeEmail    OTPPurpose = "email"
+	OTPTypeLogin    OTPPurpose = "login"
+	OTPTypeReset    OTPPurpose = "reset"
 )
 
 type Notifier interface {
@@ -36,13 +35,6 @@ type Sender interface {
 		to,
 		otp string,
 	) error
-}
-
-type UserService interface {
-	GetUserByID(
-		ctx context.Context,
-		id uuid.UUID,
-	) (*model.User, error)
 }
 
 type Generator interface {
@@ -75,15 +67,9 @@ type Store interface {
 	) error
 }
 
-type RateLimiter interface {
-	AllowOTP(ctx context.Context, userID uuid.UUID) (bool, error)
-}
-
 type Service struct {
 	store    Store
-	userSrv  UserService
 	gen      Generator
-	limiter  RateLimiter
 	logger   log.Logger
 	notifier Notifier
 }
@@ -91,16 +77,12 @@ type Service struct {
 func NewService(
 	store Store,
 	gen Generator,
-	limiter RateLimiter,
-	userSrv UserService,
 	logger log.Logger,
 	notifier Notifier,
 ) *Service {
 	return &Service{
 		store:    store,
-		userSrv:  userSrv,
 		gen:      gen,
-		limiter:  limiter,
 		logger:   logger,
 		notifier: notifier,
 	}
@@ -115,24 +97,24 @@ func invalidOTP() error {
 	)
 }
 
-func (s *Service) genKey(purpose string, userID uuid.UUID) string {
+func (s *Service) genKey(purpose string, suffix string) string {
 	return fmt.Sprintf("%s:%s",
 		purpose,
-		userID,
+		suffix,
 	)
 }
 
 func (s *Service) GenerateOTP(
 	ctx context.Context,
-	userID uuid.UUID,
 	purpose string,
+	suffix string,
 ) (string, error) {
 	otp, err := s.gen.GenerateOTP(purpose)
 	if err != nil {
 		return "", err
 	}
 
-	key := s.genKey(purpose, userID)
+	key := s.genKey(purpose, suffix)
 	o := OTP{
 		CodeHash: jwt.Hash(otp),
 		Attempts: 0,
@@ -151,44 +133,23 @@ func (s *Service) GenerateOTP(
 
 func (s *Service) SendOTP(
 	ctx context.Context,
-	userID uuid.UUID,
+	email string,
 	purpose string,
 ) error {
-	allowed, err := s.limiter.AllowOTP(ctx, userID)
-	if err != nil {
-		return err
-	}
-	if !allowed {
-		return security.NewSecureError(
-			http.StatusTooManyRequests,
-			"RATE_LIMIT_EXCEEDED",
-			"rate limit exceeded",
-			nil,
-		)
-	}
-
-	user, err := s.userSrv.GetUserByID(
-		ctx,
-		userID,
-	)
-	if err != nil {
-		return err
-	}
-
 	otp, err := s.GenerateOTP(
 		ctx,
-		userID,
 		purpose,
+		email,
 	)
 	if err != nil {
 		return err
 	}
 
 	switch purpose {
-	case "email":
+	case "register":
 		err = s.notifier.NotifyOTP(
 			ctx,
-			*user.Email,
+			email,
 			otp,
 		)
 	default:
@@ -208,14 +169,14 @@ func (s *Service) incrementAttempts(ctx context.Context, key string) error {
 
 func (s *Service) VerifyOTP(
 	ctx context.Context,
-	userID uuid.UUID,
+	email string,
 	purpose string,
 	otp string,
 ) error {
 	var key string
 	key = fmt.Sprintf("%s:%s",
 		purpose,
-		userID,
+		email,
 	)
 
 	s.logger.Debug(
@@ -289,25 +250,9 @@ func (s *Service) VerifyOTP(
 
 func (s *Service) ResendOTP(
 	ctx context.Context,
-	userID uuid.UUID,
+	email string,
 	purpose string,
 ) error {
-	allowed, err := s.limiter.AllowOTP(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to check rate limit: %w", err)
-	}
-	if !allowed {
-		return fmt.Errorf("rate limit exceeded")
-	}
-
-	// user, err := s.userSrv.GetUserByID(
-	// 	ctx,
-	// 	userID,
-	// )
-	// if err != nil {
-	// 	return err
-	// }
-
 	otp, err := s.gen.GenerateOTP(purpose)
 	if err != nil {
 		return err
@@ -316,7 +261,7 @@ func (s *Service) ResendOTP(
 	optHash := jwt.Hash(otp)
 	key := fmt.Sprintf("%s:%s",
 		purpose,
-		userID,
+		email,
 	)
 	err = s.store.Save(
 		ctx,
@@ -339,22 +284,9 @@ func (s *Service) ResendOTP(
 		"Sending OTP",
 		log.Meta{
 			"purpose": purpose,
-			"userID":  userID,
+			"email":   email,
 			"otp":     otp,
 		},
 	)
-
-	// switch purpose {
-	// case "email":
-	// 	err = s.mailer.SendOTP(ctx,
-	// 		*user.Email,
-	// 		otp)
-	// case "phone":
-	// 	err = s.mailer.SendOTP(ctx,
-	// 		*user.Phone,
-	// 		otp)
-	// default:
-	// 	return fmt.Errorf("unsupported purpose: %s", purpose)
-	// }
 	return err
 }
