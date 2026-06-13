@@ -80,8 +80,8 @@ func (s *AuthService) VerifyOTP(
 	err := s.otpService.VerifyOTP(
 		ctx,
 		req.Email,
-		req.Code,
 		"register",
+		req.Code,
 	)
 	if err != nil {
 		return err

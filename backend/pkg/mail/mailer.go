@@ -33,7 +33,6 @@ func (m *Mailer) SendHTML(
 	email.To = to
 	email.Subject = subject
 	email.HTML = []byte(html)
-	email.Headers["Content-Type"] = []string{"text/html"}
 	err := email.Send(
 		fmt.Sprintf("%s:%d", m.config.Host, m.config.Port),
 		smtp.PlainAuth(

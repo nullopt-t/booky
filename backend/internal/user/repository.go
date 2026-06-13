@@ -278,9 +278,9 @@ func (r *UserRepository) VerifyIdentifier(
 	identifierType IdentifierType,
 	identifier string,
 ) error {
-	query := `UPDATE users SET email_verified_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	query := `UPDATE users SET email_verified_at = NOW() WHERE deleted_at IS NULL AND email = $1`
 	if identifierType == IdentifierTypePhone {
-		query = `UPDATE users SET phone_verified_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+		query = `UPDATE users SET phone_verified_at = NOW() WHERE deleted_at IS NULL AND phone = $1`
 	}
 
 	res, err := qe.Exec(
