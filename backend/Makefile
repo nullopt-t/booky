@@ -31,4 +31,4 @@ migrate-reset:
 	migrate -path $(MIGRATIONS) -database "$(DB_URL)" drop -f
 	migrate -path $(MIGRATIONS) -database "$(DB_URL)" up
 
-.PHONY: migrate-new migrate-up migrate-down migrate-drop migrate-reset hot all build
+.PHONY: migrate-new migrate-up migrate-down migrate-drop migrate-reset hot run-worker all build
