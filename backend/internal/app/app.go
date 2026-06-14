@@ -5,6 +5,7 @@ import (
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/middleware"
 	"booky-backend/internal/notifier"
+	"booky-backend/internal/shared/jwt"
 	"booky-backend/internal/user/otp"
 
 	// "booky-backend/internal/inventory"
@@ -90,7 +91,7 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 		app.logger,
 	)
 
-	jwtService := user.NewJwtService(
+	jwtService := jwt.NewJWTManager(
 		config.KeysCfg,
 	)
 

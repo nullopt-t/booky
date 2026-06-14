@@ -3,6 +3,8 @@ package user
 import (
 	"booky-backend/pkg/log"
 	"context"
+
+	"booky-backend/internal/shared/jwt"
 )
 
 type Tokens struct {
@@ -11,7 +13,7 @@ type Tokens struct {
 }
 
 type AuthService struct {
-	jwtService  *JwtService
+	jwtService  *jwt.JWTManager
 	otpService  OTPService
 	userService *UserService
 	logger      log.Logger
@@ -20,7 +22,7 @@ type AuthService struct {
 func NewAuthService(
 	logger log.Logger,
 	userService *UserService,
-	jwtService *JwtService,
+	jwtService *jwt.JWTManager,
 	otpService OTPService,
 ) *AuthService {
 	return &AuthService{

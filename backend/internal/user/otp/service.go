@@ -3,7 +3,6 @@ package otp
 import (
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/log"
-	"booky-backend/pkg/utils/jwt"
 	"context"
 	"fmt"
 	"net/http"
@@ -114,9 +113,14 @@ func (s *Service) GenerateOTP(
 		return "", err
 	}
 
+	hashedOTP, err := HashOTP(otp)
+	if err != nil {
+		return "", err
+	}
+
 	key := s.genKey(purpose, suffix)
 	o := OTP{
-		CodeHash: jwt.Hash(otp),
+		CodeHash: hashedOTP,
 		Attempts: 0,
 	}
 
@@ -213,7 +217,12 @@ func (s *Service) VerifyOTP(
 		},
 	)
 
-	if uo.CodeHash != jwt.Hash(otp) {
+	hashedOTP, err := HashOTP(otp)
+	if err != nil {
+		return err
+	}
+
+	if uo.CodeHash != hashedOTP {
 		err = s.incrementAttempts(ctx, key)
 		if err != nil {
 			s.logger.Error(
@@ -258,7 +267,11 @@ func (s *Service) ResendOTP(
 		return err
 	}
 
-	optHash := jwt.Hash(otp)
+	hashedOTP, err := HashOTP(otp)
+	if err != nil {
+		return err
+	}
+
 	key := fmt.Sprintf("%s:%s",
 		purpose,
 		email,
@@ -267,7 +280,7 @@ func (s *Service) ResendOTP(
 		ctx,
 		key,
 		OTP{
-			CodeHash: optHash,
+			CodeHash: hashedOTP,
 		},
 		OTPTTL,
 	)

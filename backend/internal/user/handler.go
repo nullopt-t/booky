@@ -7,7 +7,6 @@ import (
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/log"
-	"booky-backend/pkg/utils/jwt"
 	"errors"
 	"net/http"
 	"time"
@@ -303,38 +302,38 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	claims, err := jwt.VerifyToken(
-		req.RefreshToken,
-		h.secrets.JwtRefreshTokenSecretKey,
-	)
-	if err != nil {
-		c.Error(
-			security.NewSecureError(
-				http.StatusUnauthorized,
-				security.CodeAuth,
-				"invalid or expired refresh token",
-				err,
-			),
-		)
-		return
-	}
+	// claims, err := jwt.VerifyToken(
+	// 	req.RefreshToken,
+	// 	h.secrets.JwtRefreshTokenSecretKey,
+	// )
+	// if err != nil {
+	// 	c.Error(
+	// 		security.NewSecureError(
+	// 			http.StatusUnauthorized,
+	// 			security.CodeAuth,
+	// 			"invalid or expired refresh token",
+	// 			err,
+	// 		),
+	// 	)
+	// 	return
+	// }
 
-	accessToken, err := jwt.CreateToken(
-		claims.Subject,
-		h.secrets.JwtAccessTokenSecretKey,
-		jwt.AccessTokenTTL,
-		jwt.AccessTokenType,
-	)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	// accessToken, err := jwt.CreateToken(
+	// 	claims.Subject,
+	// 	h.secrets.JwtAccessTokenSecretKey,
+	// 	jwt.AccessTokenTTL,
+	// 	jwt.AccessTokenType,
+	// )
+	// if err != nil {
+	// 	c.Error(err)
+	// 	return
+	// }
 
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
 			Data: RefreshTokenResponse{
-				AccessToken: accessToken,
+				// AccessToken: accessToken,
 			},
 		},
 	)
@@ -481,7 +480,13 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 // }
 
 func (h *Handler) GetMe(c *gin.Context) {
-	u, err := middleware.GetUserWithContext(c)
+	claims, err := middleware.ClaimsWithContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -489,7 +494,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 
 	user, err := h.userService.GetUserByID(
 		c.Request.Context(),
-		u.UserID,
+		userID,
 	)
 	if err != nil {
 		c.Error(err)

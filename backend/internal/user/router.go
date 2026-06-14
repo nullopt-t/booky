@@ -2,7 +2,6 @@ package user
 
 import (
 	"booky-backend/internal/middleware"
-	"booky-backend/internal/model"
 	"booky-backend/pkg/config"
 
 	"github.com/gin-gonic/gin"
@@ -48,14 +47,13 @@ func (r *Router) MapRoutes(vgroup *gin.RouterGroup) {
 	auth.Use(
 		middleware.Authanticate(r.config.KeysCfg),
 	)
-	auth.GET("/me", r.handler.GetMe)
 
 	users := vgroup.Group("/users")
 	users.Use(
 		middleware.Authanticate(r.config.KeysCfg),
-		middleware.Authorize(model.AdminRole),
 	)
 
+	users.GET("/me", r.handler.GetMe)
 	users.GET("", r.handler.GetAllUsers)
 	users.GET("/:id", r.handler.GetUserByID)
 	users.DELETE("/:id", r.handler.DeleteUser)

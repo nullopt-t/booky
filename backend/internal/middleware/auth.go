@@ -2,56 +2,39 @@ package middleware
 
 import (
 	"booky-backend/internal/model"
-	"booky-backend/internal/shared/token"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
-	"booky-backend/pkg/log"
-	"booky-backend/pkg/utils/jwt"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
+
+	"booky-backend/internal/shared/jwt"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	ErrKeyNotFound        = errors.New("key not found in the context")
+	ErrNoClaimsInContext  = errors.New("no claims found in the context")
 	ErrInvalidUserSubject = errors.New("invalid user subject")
 )
 
 const prefix = "Bearer "
 
-func GetUserWithContext(c *gin.Context) (*token.UserSubject, error) {
-	value, ok := c.Get("user")
+func ClaimsWithContext(c *gin.Context) (*jwt.UserClaims, error) {
+	claims, ok := c.Get("claims")
 	if !ok {
-		return nil, ErrKeyNotFound
+		return nil, ErrNoClaimsInContext
 	}
-
-	userSubject, ok := value.(token.UserSubject)
+	tclaims, ok := claims.(*jwt.UserClaims)
 	if !ok {
 		return nil, ErrInvalidUserSubject
 	}
-
-	return &userSubject, nil
-}
-
-func GetClaimsWithContext(c *gin.Context) *jwt.Claims {
-	claims, ok := c.Get("claims")
-	if !ok {
-		return &jwt.Claims{}
-	}
-	tclaims, ok := claims.(*jwt.Claims)
-	if !ok {
-		return &jwt.Claims{}
-	}
-	return tclaims
+	return tclaims, nil
 }
 
 func Authorize(requiredRole model.UserRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, err := GetUserWithContext(c)
+		claims, err := ClaimsWithContext(c)
 		if err != nil {
 			c.Error(
 				security.NewSecureError(
@@ -64,7 +47,7 @@ func Authorize(requiredRole model.UserRole) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if user.UserRole != requiredRole {
+		if claims.UserRole != string(requiredRole) {
 			c.Error(
 				security.NewSecureError(
 					http.StatusUnauthorized,
@@ -113,6 +96,7 @@ func Authanticate(secrets *config.Secrets) gin.HandlerFunc {
 
 		tokenString := strings.TrimPrefix(authHeader, prefix)
 
+		jwt := jwt.NewJWTManager(secrets)
 		claims, err := jwt.VerifyToken(
 			tokenString,
 			secrets.JwtAccessTokenSecretKey,
@@ -131,56 +115,7 @@ func Authanticate(secrets *config.Secrets) gin.HandlerFunc {
 			return
 		}
 
-		var userSubject token.UserSubject
-		if err := json.Unmarshal([]byte(claims.Subject), &userSubject); err != nil {
-			c.Error(
-				security.NewSecureError(
-					http.StatusUnauthorized,
-					"INVALID_TOKEN_SUBJECT",
-					"invalid token subject",
-					err,
-				),
-			)
-			c.Abort()
-			return
-		}
-
-		fmt.Println("userSubject:", userSubject)
-		c.Set("user", userSubject)
 		c.Set("claims", claims)
-		c.Next()
-	}
-}
-
-func IsEmailVerified(logger log.Logger) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		user, err := GetUserWithContext(c)
-		if err != nil {
-			c.Error(
-				security.NewSecureError(
-					http.StatusUnauthorized,
-					"UNAUTHORIZED",
-					"user not authenticated",
-					err,
-				),
-			)
-			c.Abort()
-			return
-		}
-
-		if !user.IsEmailVerified {
-			c.Error(
-				security.NewSecureError(
-					http.StatusUnauthorized,
-					"UNAUTHORIZED",
-					"user not authenticated: email not verified",
-					nil,
-				),
-			)
-			c.Abort()
-			return
-		}
-
 		c.Next()
 	}
 }
