@@ -102,6 +102,7 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 		otpService,
 		app.redisClient,
 		notifier,
+		config.KeysCfg,
 	)
 
 	userHandler := user.NewHandler(

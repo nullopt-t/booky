@@ -1,6 +1,7 @@
 package user
 
 import (
+	"booky-backend/pkg/config"
 	"booky-backend/pkg/log"
 	"context"
 	"fmt"
@@ -29,6 +30,7 @@ type AuthService struct {
 	logger      log.Logger
 	redisClient *redis.Client
 	notifier    Notifier
+	secrets     *config.Secrets
 }
 
 func NewAuthService(
@@ -38,6 +40,7 @@ func NewAuthService(
 	otpService OTPService,
 	redisClient *redis.Client,
 	notifier Notifier,
+	secrets *config.Secrets,
 ) *AuthService {
 	return &AuthService{
 		jwtService:  jwtService,
@@ -46,6 +49,7 @@ func NewAuthService(
 		logger:      logger,
 		redisClient: redisClient,
 		notifier:    notifier,
+		secrets:     secrets,
 	}
 }
 
@@ -202,4 +206,27 @@ func (s *AuthService) ResetPassword(
 	}
 
 	return nil
+}
+
+func (s *AuthService) RotateAccessToken(
+	ctx context.Context,
+	refreshToken string,
+) (string, error) {
+	claims, err := s.jwtService.VerifyToken(
+		refreshToken,
+		s.secrets.JwtRefreshTokenSecretKey,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	accessToken, err := s.jwtService.GenerateAccessToken(
+		claims.UserID,
+		claims.UserRole,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return accessToken, nil
 }

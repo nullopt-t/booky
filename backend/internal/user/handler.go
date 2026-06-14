@@ -33,12 +33,11 @@ type UserByEmailRequest struct {
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required,token"`
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 type RefreshTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken string `json:"access_token"`
 }
 
 type ForgetPasswordRequest struct {
@@ -345,38 +344,20 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// claims, err := jwt.VerifyToken(
-	// 	req.RefreshToken,
-	// 	h.secrets.JwtRefreshTokenSecretKey,
-	// )
-	// if err != nil {
-	// 	c.Error(
-	// 		security.NewSecureError(
-	// 			http.StatusUnauthorized,
-	// 			security.CodeAuth,
-	// 			"invalid or expired refresh token",
-	// 			err,
-	// 		),
-	// 	)
-	// 	return
-	// }
-
-	// accessToken, err := jwt.CreateToken(
-	// 	claims.Subject,
-	// 	h.secrets.JwtAccessTokenSecretKey,
-	// 	jwt.AccessTokenTTL,
-	// 	jwt.AccessTokenType,
-	// )
-	// if err != nil {
-	// 	c.Error(err)
-	// 	return
-	// }
+	accessToken, err := h.authService.RotateAccessToken(
+		c.Request.Context(),
+		req.RefreshToken,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	c.JSON(
 		http.StatusOK,
 		api.SuccessResponse{
 			Data: RefreshTokenResponse{
-				// AccessToken: accessToken,
+				AccessToken: accessToken,
 			},
 		},
 	)
