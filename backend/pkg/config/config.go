@@ -30,16 +30,24 @@ type Secrets struct {
 	JwtResetPassTokenSecretKey string
 }
 
+type ClientConfig struct {
+	BaseURL string
+}
+
 type Config struct {
-	DBCfg    *DatabaseConfig
-	RedisCfg *RedisConfig
-	SMTPCfg  *SMTPConfig
-	KeysCfg  *Secrets
-	SvPort   string
+	ClientCfg *ClientConfig
+	DBCfg     *DatabaseConfig
+	RedisCfg  *RedisConfig
+	SMTPCfg   *SMTPConfig
+	KeysCfg   *Secrets
+	SvPort    string
 }
 
 func Load() *Config {
 	return &Config{
+		ClientCfg: &ClientConfig{
+			BaseURL: utils.GetEnvOrDefault("CLIENT_BASE_URL", "http://localhost:8080"),
+		},
 		DBCfg: &DatabaseConfig{
 			DBHost:     utils.GetEnvOrDefault("DB_HOST", "localhost"),
 			DBPort:     utils.GetEnvOrDefault("DB_PORT", "5432"),
@@ -54,8 +62,8 @@ func Load() *Config {
 			DB:       utils.GetEnvAsInt("REDIS_DB", 0),
 		},
 		SMTPCfg: &SMTPConfig{
-			Host:     utils.GetEnvOrDefault("SMTP_HOST", "localhost"),
-			Port:     utils.GetEnvAsInt("SMTP_PORT", 25),
+			Host:     utils.GetEnvOrDefault("SMTP_HOST", ""),
+			Port:     utils.GetEnvAsInt("SMTP_PORT", 0),
 			Username: utils.GetEnvOrDefault("SMTP_USERNAME", ""),
 			Password: utils.GetEnvOrDefault("SMTP_PASSWORD", ""),
 		},

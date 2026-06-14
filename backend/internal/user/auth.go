@@ -3,9 +3,19 @@ package user
 import (
 	"booky-backend/pkg/log"
 	"context"
+	"fmt"
+	"time"
 
+	"booky-backend/internal/shared/crypto"
 	"booky-backend/internal/shared/jwt"
+
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
+
+type Notifier interface {
+	NotifyResetPassword(ctx context.Context, email, token string) error
+}
 
 type Tokens struct {
 	AccessToken  string
@@ -17,6 +27,8 @@ type AuthService struct {
 	otpService  OTPService
 	userService *UserService
 	logger      log.Logger
+	redisClient *redis.Client
+	notifier    Notifier
 }
 
 func NewAuthService(
@@ -24,12 +36,16 @@ func NewAuthService(
 	userService *UserService,
 	jwtService *jwt.JWTManager,
 	otpService OTPService,
+	redisClient *redis.Client,
+	notifier Notifier,
 ) *AuthService {
 	return &AuthService{
 		jwtService:  jwtService,
 		otpService:  otpService,
 		userService: userService,
 		logger:      logger,
+		redisClient: redisClient,
+		notifier:    notifier,
 	}
 }
 
@@ -115,4 +131,75 @@ func (s *AuthService) SendEmailOTP(
 		user.Email,
 		"register",
 	)
+}
+
+func (s *AuthService) ForgetPassword(
+	ctx context.Context,
+	email string,
+) error {
+	user, err := s.userService.GetUserByEmail(
+		ctx,
+		email,
+	)
+	if err != nil {
+		return err
+	}
+
+	// generate random reset token
+	resetToken, err := jwt.RandomToken()
+	if err != nil {
+		return err
+	}
+
+	tokenHash, err := crypto.Hash(resetToken)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("reset-token:%s", tokenHash)
+	err = s.redisClient.Set(ctx, key, user.ID.String(), time.Hour*24).Err()
+	if err != nil {
+		return err
+	}
+
+	return s.notifier.NotifyResetPassword(
+		ctx,
+		user.Email,
+		resetToken,
+	)
+}
+
+func (s *AuthService) ResetPassword(
+	ctx context.Context,
+	token string,
+	newPassword string,
+) error {
+	tokenHash, err := crypto.Hash(token)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("reset-token:%s", tokenHash)
+	val, err := s.redisClient.Get(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+
+	userID, err := uuid.Parse(val)
+	if err != nil {
+		return err
+	}
+
+	defer s.redisClient.Del(ctx, key)
+
+	err = s.userService.UpdatePassword(
+		ctx,
+		userID,
+		newPassword,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

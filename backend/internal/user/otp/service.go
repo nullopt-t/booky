@@ -1,6 +1,7 @@
 package otp
 
 import (
+	"booky-backend/internal/shared/crypto"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/log"
 	"context"
@@ -113,7 +114,7 @@ func (s *Service) GenerateOTP(
 		return "", err
 	}
 
-	hashedOTP, err := HashOTP(otp)
+	hashedOTP, err := crypto.Hash(otp)
 	if err != nil {
 		return "", err
 	}
@@ -217,7 +218,7 @@ func (s *Service) VerifyOTP(
 		},
 	)
 
-	hashedOTP, err := HashOTP(otp)
+	hashedOTP, err := crypto.Hash(otp)
 	if err != nil {
 		return err
 	}
@@ -267,7 +268,7 @@ func (s *Service) ResendOTP(
 		return err
 	}
 
-	hashedOTP, err := HashOTP(otp)
+	hashedOTP, err := crypto.Hash(otp)
 	if err != nil {
 		return err
 	}

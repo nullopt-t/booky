@@ -377,5 +377,34 @@ func (s *UserService) UpdatePassword(
 	return nil
 }
 
+func (s *UserService) CheckPassword(
+	ctx context.Context,
+	userID uuid.UUID,
+	password string,
+) error {
+	return s.dbExecuter.WithDB(
+		ctx,
+		func(db database.QueryExecutor) error {
+			user, err := s.repo.Get(
+				ctx,
+				db,
+				Filter{
+					ID: &userID,
+				},
+			)
+			if err != nil {
+				return err
+			}
 
-
+			if err := utils.ComparePassword(user.PasswordHash, password); err != nil {
+				return security.NewSecureError(
+					http.StatusUnauthorized,
+					security.CodeUnauthorized,
+					"invalid password",
+					err,
+				)
+			}
+			return nil
+		},
+	)
+}

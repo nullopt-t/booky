@@ -1,13 +1,13 @@
-package otp
+package crypto
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
 )
 
-func HashOTP(otp string) (string, error) {
+func Hash(s string) (string, error) {
 	hash := sha256.New()
-	_, err := hash.Write([]byte(otp))
+	_, err := hash.Write([]byte(s))
 	if err != nil {
 		return "", err
 	}

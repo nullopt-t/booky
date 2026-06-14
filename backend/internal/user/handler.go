@@ -38,13 +38,12 @@ type RefreshTokenResponse struct {
 }
 
 type ForgetPasswordRequest struct {
-	Email string `json:"email"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type VerifyResetTokenRequest struct {
-	Token       string `json:"token"`
-	OldPassword string `json:"old_password"`
-	NewPassword string `json:"new_password"`
+	Token    string `json:"token" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 type VerifyOTPRequest struct {
@@ -339,145 +338,57 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	)
 }
 
-// func (h *Handler) ForgetPassword(c *gin.Context) {
-// 	var req ForgetPasswordRequest
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		h.handleValidationError(c, err)
-// 		return
-// 	}
+func (h *Handler) ForgetPassword(c *gin.Context) {
+	var req ForgetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handleValidationError(c, err)
+		return
+	}
 
-// 	/// check user exists by email
-// 	user, err := h.userService.GetUserByEmail(
-// 		c.Request.Context(),
-// 		req.Email,
-// 	)
-// 	if err != nil {
-// 		c.Error(err)
-// 		return
-// 	}
+	// generate reset token and send email
+	// if the email exists, a reset token will be generated and sent to the user's email
+	// if the email does not exist, no action will be taken
+	// but no error will be returned, to prevent email enumeration
+	ctx := c.Request.Context()
+	err := h.authService.ForgetPassword(ctx, req.Email)
+	if err != nil {
+		h.logger.Error("failed to forget password", log.Meta{
+			"email": req.Email,
+			"error": err,
+		})
+	}
 
-// 	var resetToken string
-// 	if user.ResetTokenExpireAt != nil && user.ResetTokenExpireAt.After(time.Now()) {
-// 		resetToken = *user.ResetToken
-// 	} else {
-// 		subjectStr, err := json.Marshal(
-// 			token.UserSubject{
-// 				UserID:   user.ID,
-// 				UserRole: user.Role,
-// 			},
-// 		)
-// 		if err != nil {
-// 			c.Error(err)
-// 			return
-// 		}
+	c.JSON(
+		http.StatusOK,
+		api.SuccessResponse{
+			Message: "If an account exists, a password reset email has been sent.",
+		},
+	)
+}
 
-// 		resetToken, err = jwt.CreateToken(
-// 			string(subjectStr),
-// 			h.secrets.JwtResetPassTokenSecretKey,
-// 			jwt.ResetPassTokenTTL,
-// 			jwt.ResetPassTokenType,
-// 		)
-// 		if err != nil {
-// 			c.Error(err)
-// 			return
-// 		}
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req VerifyResetTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handleValidationError(c, err)
+		return
+	}
 
-// 		err = h.userService.SetResetToken(
-// 			c.Request.Context(),
-// 			user.ID,
-// 			resetToken,
-// 		)
-// 		if err != nil {
-// 			c.JSON(
-// 				http.StatusInternalServerError,
-// 				api.ErrorResponse{
-// 					Code:    "INTERNAL_ERROR",
-// 					Message: err.Error(),
-// 				},
-// 			)
-// 			return
-// 		}
-// 	}
+	if err := h.authService.ResetPassword(
+		c.Request.Context(),
+		req.Token,
+		req.Password,
+	); err != nil {
+		c.Error(err)
+		return
+	}
 
-// 	c.JSON(
-// 		http.StatusOK,
-// 		api.SuccessResponse{
-// 			Message: "email sent successfully",
-// 		},
-// 	)
-// }
-
-// func (h *Handler) ResetPassword(c *gin.Context) {
-// 	var req VerifyResetTokenRequest
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		h.handleValidationError(c, err)
-// 		return
-// 	}
-
-// 	claims, err := jwt.VerifyToken(
-// 		req.Token,
-// 		h.secrets.JwtResetPassTokenSecretKey,
-// 	)
-// 	if err != nil {
-// 		c.Error(err)
-// 		return
-// 	}
-
-// 	var subject token.UserSubject
-// 	if err := json.Unmarshal(
-// 		[]byte(claims.Subject),
-// 		&subject,
-// 	); err != nil {
-// 		c.Error(err)
-// 		return
-// 	}
-
-// 	if err := h.userService.CheckPasswordResetToken(
-// 		c.Request.Context(),
-// 		subject.UserID,
-// 		req.Token,
-// 	); err != nil {
-// 		c.Error(err)
-// 		return
-// 	}
-
-// 	if claims.ExpiresAt.Before(time.Now()) {
-// 		c.Error(
-// 			security.NewSecureError(
-// 				http.StatusBadRequest,
-// 				security.CodeValidation,
-// 				"expired reset token",
-// 				nil,
-// 			),
-// 		)
-// 		return
-// 	}
-
-// 	if err := h.userService.CheckPassword(
-// 		c.Request.Context(),
-// 		subject.UserID,
-// 		req.OldPassword,
-// 	); err != nil {
-// 		c.Error(err)
-// 		return
-// 	}
-
-// 	if err := h.userService.UpdatePassword(
-// 		c.Request.Context(),
-// 		subject.UserID,
-// 		req.NewPassword,
-// 	); err != nil {
-// 		c.Error(err)
-// 		return
-// 	}
-
-// 	c.JSON(
-// 		http.StatusOK,
-// 		api.SuccessResponse{
-// 			Message: "password updated successfully",
-// 		},
-// 	)
-// }
+	c.JSON(
+		http.StatusOK,
+		api.SuccessResponse{
+			Message: "password updated successfully",
+		},
+	)
+}
 
 func (h *Handler) GetMe(c *gin.Context) {
 	claims, err := middleware.ClaimsWithContext(c)

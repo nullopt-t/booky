@@ -2,6 +2,8 @@ package jwt
 
 import (
 	"booky-backend/pkg/config"
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -30,6 +32,16 @@ const (
 	AccessTokenExpiration  = 15 * time.Minute
 	RefreshTokenExpiration = 24 * time.Hour
 )
+
+func RandomToken() (string, error) {
+	b := make([]byte, 32) // 32 bytes = 256 bits
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(b), nil
+}
 
 func (s *JWTManager) GenerateAccessToken(userID, userRole string) (string, error) {
 	claims := UserClaims{

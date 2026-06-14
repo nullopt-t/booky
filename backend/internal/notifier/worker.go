@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"booky-backend/pkg/config"
 	"booky-backend/pkg/log"
 	"context"
 	"encoding/json"
@@ -11,10 +12,11 @@ import (
 const LIST_KEY = "otp_email_queue"
 
 type Worker struct {
-	queue    Queue
-	logger   log.Logger
-	mailer   Mailer
-	renderer *Renderer
+	queue     Queue
+	logger    log.Logger
+	mailer    Mailer
+	renderer  *Renderer
+	clientCfg *config.ClientConfig
 }
 
 func NewNotifierWorker(
@@ -22,12 +24,14 @@ func NewNotifierWorker(
 	logger log.Logger,
 	mailer Mailer,
 	renderer *Renderer,
+	clientCfg *config.ClientConfig,
 ) *Worker {
 	return &Worker{
-		queue:    queue,
-		logger:   logger,
-		mailer:   mailer,
-		renderer: renderer,
+		queue:     queue,
+		logger:    logger,
+		mailer:    mailer,
+		renderer:  renderer,
+		clientCfg: clientCfg,
 	}
 }
 
@@ -55,6 +59,27 @@ func (w *Worker) handleMessage(
 		w.logger.Info("otp sent", log.Meta{
 			"email": payload.Email,
 			"otp":   payload.Code,
+		})
+	case MessageTypeResetPassword:
+		var payload ResetPasswordPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			return err
+		}
+		tmpl, err := w.renderer.Render("reset-password", map[string]any{
+			"Token":   payload.Token,
+			"BaseURL": w.clientCfg.BaseURL,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = w.mailer.SendHTML([]string{payload.Email}, "Reset Password", tmpl)
+		if err != nil {
+			return err
+		}
+
+		w.logger.Info("reset password sent", log.Meta{
+			"email": payload.Email,
 		})
 
 	case MessageTypeWelcome:

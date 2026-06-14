@@ -68,6 +68,7 @@ func main() {
 		logger,
 		mailer,
 		renderer,
+		cfg.ClientCfg,
 	)
 
 	worker.Start(ctx)

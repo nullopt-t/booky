@@ -12,13 +12,19 @@ import (
 type MessageType string
 
 const (
-	MessageTypeOTP     MessageType = "email_otp"
-	MessageTypeWelcome MessageType = "email_welcome"
+	MessageTypeOTP           MessageType = "email_otp"
+	MessageTypeWelcome       MessageType = "email_welcome"
+	MessageTypeResetPassword MessageType = "email_reset_password"
 )
 
 type OTPPayload struct {
 	Email string `json:"email"`
 	Code  string `json:"code"`
+}
+
+type ResetPasswordPayload struct {
+	Email string `json:"email"`
+	Token string `json:"token"`
 }
 
 type WelcomePayload struct {
@@ -97,6 +103,31 @@ func (n *Notifier) NotifyWelcome(
 		Message{
 			ID:         uuid.New(),
 			Type:       MessageTypeWelcome,
+			Status:     "pending",
+			Attempts:   0,
+			Payload:    payload,
+			EnqueuedAt: time.Now(),
+		},
+	)
+}
+
+func (n *Notifier) NotifyResetPassword(
+	ctx context.Context,
+	email, token string,
+) error {
+	payload, err := json.Marshal(
+		ResetPasswordPayload{
+			Email: email,
+			Token: token,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return n.queue.Enqueue(ctx,
+		Message{
+			ID:         uuid.New(),
+			Type:       MessageTypeResetPassword,
 			Status:     "pending",
 			Attempts:   0,
 			Payload:    payload,

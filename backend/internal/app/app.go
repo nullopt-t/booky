@@ -100,6 +100,8 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 		userService,
 		jwtService,
 		otpService,
+		app.redisClient,
+		notifier,
 	)
 
 	userHandler := user.NewHandler(
