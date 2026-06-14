@@ -307,7 +307,9 @@ func (r *UserRepository) UpdatePasswordHash(
 	newPassHash []byte,
 ) error {
 
-	query := `UPDATE users SET password_hash = $1 WHERE deleted_at IS NULL`
+	query := `UPDATE users SET password_hash = $1,
+		updated_at = NOW()
+	WHERE deleted_at IS NULL`
 
 	args := []any{newPassHash}
 	i := 2
