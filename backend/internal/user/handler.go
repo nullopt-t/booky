@@ -3,6 +3,7 @@ package user
 import (
 	"booky-backend/internal/middleware"
 	"booky-backend/internal/model"
+	"booky-backend/internal/shared/validation"
 	"booky-backend/pkg/api"
 	"booky-backend/pkg/api/security"
 	"booky-backend/pkg/config"
@@ -19,22 +20,25 @@ import (
 const (
 	ResendOTPLimit = 5
 	VerifyOTPLimit = 3
+
+	maxEmailLength = 255
 )
 
-type GetAllUsersResponse struct {
+type UsersResponse struct {
 	Users []UserResponse `json:"users"`
 }
 
-type GetUserByEmailRequest struct {
-	Email string `json:"email"`
+type UserByEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token" binding:"required,token"`
 }
 
 type RefreshTokenResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type ForgetPasswordRequest struct {
@@ -42,8 +46,8 @@ type ForgetPasswordRequest struct {
 }
 
 type VerifyResetTokenRequest struct {
-	Token    string `json:"token" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Token    string `json:"token" binding:"required,token"`
+	Password string `json:"password" binding:"required,password"`
 }
 
 type VerifyOTPRequest struct {
@@ -85,8 +89,8 @@ func ToUserResponse(user model.User) UserResponse {
 	}
 }
 
-func ToUserListResponse(users []model.User) GetAllUsersResponse {
-	var list GetAllUsersResponse
+func ToUserListResponse(users []model.User) UsersResponse {
+	var list UsersResponse
 	list.Users = make([]UserResponse, 0, len(users))
 	for _, user := range users {
 		list.Users = append(list.Users, ToUserResponse(user))
@@ -162,6 +166,26 @@ func (h *Handler) UserRegister(c *gin.Context) {
 		return
 	}
 
+	if err := validation.IsValidEmail(req.Email); err != nil {
+		c.Error(security.NewSecureError(
+			http.StatusBadRequest,
+			"VALIDATION_ERROR",
+			"invalid email",
+			err,
+		))
+		return
+	}
+
+	if err := validation.IsValidPassword(req.Password); err != nil {
+		c.Error(security.NewSecureError(
+			http.StatusBadRequest,
+			"VALIDATION_ERROR",
+			"invalid password",
+			err,
+		))
+		return
+	}
+
 	err := h.authService.Register(
 		c.Request.Context(),
 		req,
@@ -187,6 +211,26 @@ func (h *Handler) UserLogin(c *gin.Context) {
 	var req LoginUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.handleValidationError(c, err)
+		return
+	}
+
+	if err := validation.IsValidEmail(req.Email); err != nil {
+		c.Error(security.NewSecureError(
+			http.StatusBadRequest,
+			"VALIDATION_ERROR",
+			"invalid email",
+			err,
+		))
+		return
+	}
+
+	if err := validation.IsValidPassword(req.Password); err != nil {
+		c.Error(security.NewSecureError(
+			http.StatusBadRequest,
+			"VALIDATION_ERROR",
+			"invalid password",
+			err,
+		))
 		return
 	}
 
@@ -345,12 +389,39 @@ func (h *Handler) ForgetPassword(c *gin.Context) {
 		return
 	}
 
+	if err := validation.IsValidEmail(req.Email); err != nil {
+		c.Error(
+			security.NewSecureError(
+				http.StatusBadRequest,
+				"VALIDATION_ERROR",
+				"Invalid email address",
+				err,
+			),
+		)
+		return
+	}
+
+	ctx := c.Request.Context()
+	allow, err := h.limiter.Allow(
+		ctx,
+		"forget_password:"+req.Email,
+		10,
+		time.Minute,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	if !allow {
+		c.Error(http.ErrBodyNotAllowed)
+		return
+	}
+
 	// generate reset token and send email
 	// if the email exists, a reset token will be generated and sent to the user's email
 	// if the email does not exist, no action will be taken
 	// but no error will be returned, to prevent email enumeration
-	ctx := c.Request.Context()
-	err := h.authService.ForgetPassword(ctx, req.Email)
+	err = h.authService.ForgetPassword(ctx, req.Email)
 	if err != nil {
 		h.logger.Error("failed to forget password", log.Meta{
 			"email": req.Email,
@@ -370,6 +441,18 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 	var req VerifyResetTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.handleValidationError(c, err)
+		return
+	}
+
+	if err := validation.IsValidPassword(req.Password); err != nil {
+		c.Error(
+			security.NewSecureError(
+				http.StatusBadRequest,
+				"VALIDATION_ERROR",
+				"Invalid password",
+				err,
+			),
+		)
 		return
 	}
 
@@ -436,6 +519,16 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
+	if err := validation.IsValidEmail(req.Email); err != nil {
+		c.Error(security.NewSecureError(
+			http.StatusBadRequest,
+			"INVALID_EMAIL",
+			"invalid email",
+			err,
+		))
+		return
+	}
+
 	key := "otp:verify:" + req.Email
 	allowed, err := h.limiter.Allow(
 		ctx,
@@ -479,6 +572,16 @@ func (h *Handler) ResendOTP(c *gin.Context) {
 	var req ResendOTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.handleValidationError(c, err)
+		return
+	}
+
+	if err := validation.IsValidEmail(req.Email); err != nil {
+		c.Error(security.NewSecureError(
+			http.StatusBadRequest,
+			"INVALID_EMAIL",
+			"invalid email",
+			err,
+		))
 		return
 	}
 
