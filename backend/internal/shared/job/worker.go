@@ -1,4 +1,4 @@
-package notifier
+package job
 
 import (
 	"booky-backend/pkg/config"
@@ -9,21 +9,15 @@ import (
 	"time"
 )
 
-const LIST_KEY = "otp_email_queue"
-
-type Mailer interface {
-	SendHTML(to []string, subject, html string) error
-}
-
 type Worker struct {
-	queue      Queue
+	queue      JobQueue
 	dispatcher *MessageDispatcher
 	logger     log.Logger
 	clientCfg  *config.ClientConfig
 }
 
 func NewNotifierWorker(
-	queue Queue,
+	queue JobQueue,
 	dispatcher *MessageDispatcher,
 	logger log.Logger,
 	clientCfg *config.ClientConfig,
@@ -51,6 +45,10 @@ func (w *Worker) Start(ctx context.Context) {
 			continue
 		}
 
+		if msg.Status != "pending" {
+			continue
+		}
+
 		w.logger.Info(
 			"dequeued message:",
 			log.Meta{
@@ -62,16 +60,24 @@ func (w *Worker) Start(ctx context.Context) {
 			},
 		)
 
-		err = w.dispatcher.Dispatch(ctx, msg)
+		err = w.dispatcher.Dispatch(string(msg.Type), msg)
 		if err != nil {
-			w.logger.Error("failed to dispatch message", log.Meta{"error": err})
-			msg.Status = "failed"
 			msg.Attempts++
+			if msg.Attempts >= 3 {
+				// mark as failed and skip re-enqueue
+				continue
+			}
+
 			err = w.queue.Enqueue(ctx, msg)
 			if err != nil {
 				w.logger.Error("failed to re-enqueue message", log.Meta{"error": err})
 			}
 			continue
+		}
+		msg.Status = "completed"
+		err = w.queue.Enqueue(ctx, msg)
+		if err != nil {
+			w.logger.Error("failed to re-enqueue message", log.Meta{"error": err})
 		}
 	}
 }

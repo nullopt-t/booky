@@ -1,21 +1,19 @@
 package notifier
 
 import (
+	"booky-backend/internal/shared/job"
 	"booky-backend/pkg/log"
 	"context"
 	"encoding/json"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 type EmailNotifier struct {
-	queue  Queue
+	queue  job.JobQueue
 	logger log.Logger
 }
 
 func NewEmailNotifier(
-	queue Queue,
+	queue job.JobQueue,
 	logger log.Logger,
 ) *EmailNotifier {
 	return &EmailNotifier{
@@ -45,15 +43,13 @@ func (n *EmailNotifier) NotifyOTP(
 		return err
 	}
 
-	msg := &Message{
-		ID:         uuid.New(),
-		Type:       MessageTypeEmailOTP,
-		Status:     "pending",
-		Attempts:   0,
-		Payload:    payload,
-		EnqueuedAt: time.Now(),
-	}
-	return n.queue.Enqueue(ctx, msg)
+	return n.queue.Enqueue(ctx,
+		job.NewJobMessage(
+			job.MessageTypeEmail,
+			job.CommandEmailOTP,
+			payload,
+		),
+	)
 }
 
 func (n *EmailNotifier) NotifyWelcome(
@@ -68,15 +64,14 @@ func (n *EmailNotifier) NotifyWelcome(
 	if err != nil {
 		return err
 	}
-	msg := &Message{
-		ID:         uuid.New(),
-		Type:       MessageTypeEmailWelcome,
-		Status:     "pending",
-		Attempts:   0,
-		Payload:    payload,
-		EnqueuedAt: time.Now(),
-	}
-	return n.queue.Enqueue(ctx, msg)
+
+	return n.queue.Enqueue(ctx,
+		job.NewJobMessage(
+			job.MessageTypeEmail,
+			job.CommandWelcome,
+			payload,
+		),
+	)
 }
 
 func (n *EmailNotifier) NotifyResetPassword(
@@ -92,13 +87,11 @@ func (n *EmailNotifier) NotifyResetPassword(
 	if err != nil {
 		return err
 	}
-	msg := &Message{
-		ID:         uuid.New(),
-		Type:       MessageTypeResetPassword,
-		Status:     "pending",
-		Attempts:   0,
-		Payload:    payload,
-		EnqueuedAt: time.Now(),
-	}
-	return n.queue.Enqueue(ctx, msg)
+	return n.queue.Enqueue(ctx,
+		job.NewJobMessage(
+			job.MessageTypeEmail,
+			job.CommandResetPassword,
+			payload,
+		),
+	)
 }

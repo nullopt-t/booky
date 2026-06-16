@@ -3,6 +3,7 @@ package main
 import (
 	"booky-backend/internal/notifier"
 	"booky-backend/internal/shared/html"
+	"booky-backend/internal/shared/job"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/log"
 	"booky-backend/pkg/mail"
@@ -46,7 +47,7 @@ func main() {
 		cancel()
 	}()
 
-	jobQueue := notifier.NewRedisJobQueue(redisClient)
+	jobQueue := job.NewJobQueue(redisClient, job.EmailQueue)
 
 	mailer := mail.NewMailer(&mail.Config{
 		Host:     cfg.SMTPCfg.Host,
@@ -64,14 +65,16 @@ func main() {
 		return
 	}
 
-	emailMessageHandler := notifier.NewEmailHandler(renderer, mailer)
+	commandDispatcher := job.NewMessageDispatcher()
+	emailMessageHandler := notifier.NewEmailHandler(renderer, commandDispatcher, mailer)
+	commandDispatcher.Register(string(job.CommandEmailOTP), emailMessageHandler.SendEmailOTP)
 
-	dispatcher := notifier.NewMessageDispatcher()
-	dispatcher.Register(notifier.MessageTypeEmailOTP, emailMessageHandler.SendEmailOTP)
+	typeDispatcher := job.NewMessageDispatcher()
+	typeDispatcher.Register(string(job.MessageTypeEmail), emailMessageHandler.HandleMessage)
 
-	worker := notifier.NewNotifierWorker(
+	worker := job.NewNotifierWorker(
 		jobQueue,
-		dispatcher,
+		typeDispatcher,
 		logger,
 		cfg.ClientCfg,
 	)

@@ -5,6 +5,7 @@ import (
 	"booky-backend/internal/http/swagger"
 	"booky-backend/internal/middleware"
 	"booky-backend/internal/notifier"
+	"booky-backend/internal/shared/job"
 	"booky-backend/internal/shared/jwt"
 	"booky-backend/internal/user/otp"
 
@@ -57,8 +58,9 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 
 	txRunner := database.NewTxRunner(app.db)
 
-	jobQueue := notifier.NewRedisJobQueue(
+	jobQueue := job.NewJobQueue(
 		app.redisClient,
+		job.EmailQueue,
 	)
 
 	notifier := notifier.NewEmailNotifier(
