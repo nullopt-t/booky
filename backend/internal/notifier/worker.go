@@ -1,8 +1,10 @@
 package notifier
 
 import (
+	"booky-backend/internal/shared/html"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/log"
+
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,11 +13,15 @@ import (
 
 const LIST_KEY = "otp_email_queue"
 
+type Mailer interface {
+	SendHTML(to []string, subject, html string) error
+}
+
 type Worker struct {
 	queue     Queue
 	logger    log.Logger
 	mailer    Mailer
-	renderer  *Renderer
+	renderer  *html.Renderer
 	clientCfg *config.ClientConfig
 }
 
@@ -23,7 +29,7 @@ func NewNotifierWorker(
 	queue Queue,
 	logger log.Logger,
 	mailer Mailer,
-	renderer *Renderer,
+	renderer *html.Renderer,
 	clientCfg *config.ClientConfig,
 ) *Worker {
 	return &Worker{

@@ -61,7 +61,7 @@ func (app *App) setupRoutes(config *config.Config, router *gin.Engine) {
 		app.redisClient,
 	)
 
-	notifier := notifier.NewNotifier(
+	notifier := notifier.NewEmailNotifier(
 		jobQueue,
 		app.logger,
 	)
