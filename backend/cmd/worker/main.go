@@ -2,6 +2,7 @@ package main
 
 import (
 	"booky-backend/internal/notifier"
+	"booky-backend/internal/shared/html"
 	"booky-backend/pkg/config"
 	"booky-backend/pkg/log"
 	"booky-backend/pkg/mail"
@@ -54,7 +55,7 @@ func main() {
 		Password: cfg.SMTPCfg.Password,
 	})
 
-	renderer, err := notifier.NewRenderer()
+	renderer, err := html.NewRenderer()
 	if err != nil {
 		logger.Error(
 			"renderer creation failed:", log.Meta{
@@ -63,11 +64,15 @@ func main() {
 		return
 	}
 
+	emailMessageHandler := notifier.NewEmailHandler(renderer, mailer)
+
+	dispatcher := notifier.NewMessageDispatcher()
+	dispatcher.Register(notifier.MessageTypeEmailOTP, emailMessageHandler.SendEmailOTP)
+
 	worker := notifier.NewNotifierWorker(
 		jobQueue,
+		dispatcher,
 		logger,
-		mailer,
-		renderer,
 		cfg.ClientCfg,
 	)
 

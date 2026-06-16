@@ -44,16 +44,16 @@ func (n *EmailNotifier) NotifyOTP(
 	if err != nil {
 		return err
 	}
-	return n.queue.Enqueue(ctx,
-		Message{
-			ID:         uuid.New(),
-			Type:       MessageTypeOTP,
-			Status:     "pending",
-			Attempts:   0,
-			Payload:    payload,
-			EnqueuedAt: time.Now(),
-		},
-	)
+
+	msg := &Message{
+		ID:         uuid.New(),
+		Type:       MessageTypeEmailOTP,
+		Status:     "pending",
+		Attempts:   0,
+		Payload:    payload,
+		EnqueuedAt: time.Now(),
+	}
+	return n.queue.Enqueue(ctx, msg)
 }
 
 func (n *EmailNotifier) NotifyWelcome(
@@ -68,16 +68,15 @@ func (n *EmailNotifier) NotifyWelcome(
 	if err != nil {
 		return err
 	}
-	return n.queue.Enqueue(ctx,
-		Message{
-			ID:         uuid.New(),
-			Type:       MessageTypeWelcome,
-			Status:     "pending",
-			Attempts:   0,
-			Payload:    payload,
-			EnqueuedAt: time.Now(),
-		},
-	)
+	msg := &Message{
+		ID:         uuid.New(),
+		Type:       MessageTypeEmailWelcome,
+		Status:     "pending",
+		Attempts:   0,
+		Payload:    payload,
+		EnqueuedAt: time.Now(),
+	}
+	return n.queue.Enqueue(ctx, msg)
 }
 
 func (n *EmailNotifier) NotifyResetPassword(
@@ -93,14 +92,13 @@ func (n *EmailNotifier) NotifyResetPassword(
 	if err != nil {
 		return err
 	}
-	return n.queue.Enqueue(ctx,
-		Message{
-			ID:         uuid.New(),
-			Type:       MessageTypeResetPassword,
-			Status:     "pending",
-			Attempts:   0,
-			Payload:    payload,
-			EnqueuedAt: time.Now(),
-		},
-	)
+	msg := &Message{
+		ID:         uuid.New(),
+		Type:       MessageTypeResetPassword,
+		Status:     "pending",
+		Attempts:   0,
+		Payload:    payload,
+		EnqueuedAt: time.Now(),
+	}
+	return n.queue.Enqueue(ctx, msg)
 }

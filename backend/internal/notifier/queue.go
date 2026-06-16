@@ -28,7 +28,7 @@ func NewRedisJobQueue(client *redis.Client) *redisJobQueue {
 	return &redisJobQueue{client: client}
 }
 
-func (q *redisJobQueue) Enqueue(ctx context.Context, msg Message) error {
+func (q *redisJobQueue) Enqueue(ctx context.Context, msg *Message) error {
 	mm, err := json.Marshal(msg)
 	if err != nil {
 		return err
@@ -41,17 +41,18 @@ func (q *redisJobQueue) Enqueue(ctx context.Context, msg Message) error {
 	return nil
 }
 
-func (q *redisJobQueue) Dequeue(ctx context.Context) (Message, error) {
+func (q *redisJobQueue) Dequeue(ctx context.Context) (*Message, error) {
 	var msg Message
 	res, err := q.client.LPop(ctx, QUEUE_KEY).Result()
 	if err != nil {
-		return msg, err
+		return nil, err
 	}
 	if res != "" {
 		err = json.Unmarshal([]byte(res), &msg)
 		if err != nil {
-			return msg, err
+			return nil, err
 		}
+		return &msg, nil
 	}
-	return msg, nil
+	return nil, nil
 }

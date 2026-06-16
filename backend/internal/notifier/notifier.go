@@ -7,8 +7,9 @@ import (
 type MessageType string
 
 const (
-	MessageTypeOTP           MessageType = "email_otp"
-	MessageTypeWelcome       MessageType = "email_welcome"
+	MessageTypePhoneOTP      MessageType = "phone_otp"
+	MessageTypeEmailOTP      MessageType = "email_otp"
+	MessageTypeEmailWelcome  MessageType = "email_welcome"
 	MessageTypeResetPassword MessageType = "email_reset_password"
 )
 
@@ -27,6 +28,6 @@ type WelcomePayload struct {
 }
 
 type Queue interface {
-	Enqueue(ctx context.Context, msg Message) error
-	Dequeue(ctx context.Context) (Message, error)
+	Enqueue(ctx context.Context, msg *Message) error
+	Dequeue(ctx context.Context) (*Message, error)
 }
